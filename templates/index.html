@@ -235,12 +235,36 @@
       <div class="pet-room-shop" id="petRoomShop"><div class="room-shop-loading">Your decorations are loading…</div></div>
       <div class="pet-room-login" id="petRoomLogin" hidden>Log in to save your personal room and decoration collection.</div>
     </section>
+    <section class="mini-games" id="miniGamesPanel" aria-label="SkillBuddy mini games">
+      <div class="mini-games-heading"><div><span class="pet-care-kicker">PLAY • PRACTISE • LEVEL UP</span><h3>Mini-Games <span>🎮</span></h3><p>Quick learning challenges. Earn XP once per game each day.</p></div><span class="mini-xp-pill" id="miniGamesXP">⚡ — XP</span></div>
+      <div class="mini-game-cards" id="miniGameCards"><div class="mini-game-loading">Loading your games…</div></div>
+      <div class="mini-game-stage" id="miniGameStage" hidden>
+        <div class="mini-stage-head"><div><span class="pet-care-kicker" id="miniGameEyebrow">GAME ROUND</span><h4 id="miniGameTitle">Ready?</h4></div><button type="button" id="miniGameClose" aria-label="Close game">×</button></div>
+        <div id="miniGameContent"></div>
+        <div class="mini-game-feedback" id="miniGameFeedback" aria-live="polite"></div>
+      </div>
+      <p class="mini-games-note" id="miniGamesNote">Rewards are verified and saved to your SkillSwap XP profile.</p>
+      <div class="mini-games-login" id="miniGamesLogin" hidden>Log in to play games and save XP to your account.</div>
+    </section>
     <div class="assistant-intro"><strong id="petGreeting">Hey there, learner! 👋</strong><p>I'm your little SkillSwap robot. Ask me anything, tell me how learning is going, or let me guide you around.</p></div>
     <div class="assistant-quick" id="assistantQuick"><button type="button" data-question="Help me find a learning partner">Find a partner</button><button type="button" data-question="What should I learn next?">What to learn?</button><button type="button" data-question="How do I use SkillSwap?">Guide me</button></div>
     <div class="assistant-messages" id="assistantMessages" aria-live="polite"><div class="chat-message bot">Beep boop! 🤖 I'm here whenever you need a hand. What's on your mind?</div></div>
     <form id="assistantForm" class="assistant-form"><input id="assistantInput" autocomplete="off" maxlength="500" placeholder="Talk to your buddy…" aria-label="Message SkillBuddy" required><button type="submit" aria-label="Send message">➤</button></form>
     <div class="assistant-footnote">Friendly support, not a human · Don't share passwords or private information · <span id="assistantFootMode">Checking assistant mode…</span></div>
   </section>
+  <div class="secret-event-backdrop" id="secretEventBackdrop" hidden aria-hidden="true">
+    <div class="secret-event-card" id="secretEventCard" role="dialog" aria-modal="true" aria-labelledby="secretEventTitle">
+      <button type="button" class="secret-event-close" id="secretEventClose" aria-label="Close surprise">×</button>
+      <div class="secret-event-orbit" aria-hidden="true"><span class="secret-event-icon" id="secretEventIcon">🌠</span><i></i><b></b><em></em></div>
+      <span class="secret-event-kicker">A SECRET SKILLBUDDY EVENT</span>
+      <h2 id="secretEventTitle">A surprise found you!</h2>
+      <p id="secretEventSubtitle">A little bonus for your learning journey.</p>
+      <div class="secret-event-reward" id="secretEventReward">⚡ XP BONUS</div>
+      <button type="button" class="secret-event-claim" id="secretEventClaim">Collect surprise</button>
+      <small id="secretEventFoot">Surprises are random and can be collected once per day.</small>
+    </div>
+    <div class="secret-event-particles" id="secretEventParticles" aria-hidden="true"></div>
+  </div>
   <button type="button" id="assistantToggle" class="assistant-toggle robot-toggle" aria-label="Talk to SkillBuddy" aria-expanded="false">
     <span class="robot-pet" aria-hidden="true"><svg viewBox="0 0 100 100"><defs><linearGradient id="petShell" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#a99bff"/><stop offset=".55" stop-color="#7664ec"/><stop offset="1" stop-color="#4b48b9"/></linearGradient><linearGradient id="petGlass" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#24345a"/><stop offset="1" stop-color="#10182f"/></linearGradient></defs><ellipse cx="50" cy="91" rx="28" ry="5" fill="#4d43b5" opacity=".18"/><path d="M50 7v10" stroke="#52dce7" stroke-width="4" stroke-linecap="round"/><circle cx="50" cy="7" r="5" fill="#6cf0ee"/><path d="M23 33q0-17 17-17h20q17 0 17 17v31q0 17-17 17H40q-17 0-17-17z" fill="url(#petShell)" stroke="#c5bcff" stroke-width="2"/><path d="M23 43H15v19h8M77 43h8v19h-8" fill="#6358d7" stroke="#b8adff" stroke-width="2"/><rect x="29" y="34" width="42" height="28" rx="11" fill="url(#petGlass)" stroke="#b9b1ff" stroke-width="1.5"/><ellipse class="pet-eye" cx="41" cy="47" rx="4.5" ry="6" fill="#75f4f0"/><ellipse class="pet-eye" cx="59" cy="47" rx="4.5" ry="6" fill="#75f4f0"/><path d="M42 70q8 7 16 0" fill="none" stroke="#f5f1ff" stroke-width="2.5" stroke-linecap="round"/><circle cx="31" cy="68" r="4" fill="#ffb8d2" opacity=".85"/><circle cx="69" cy="68" r="4" fill="#ffb8d2" opacity=".85"/><path d="M35 82l-5 8h15l5-8M65 82l5 8H55l-5-8" fill="#4b48b9"/></svg><span class="pet-tears" aria-hidden="true"><i></i><i></i></span></span>
     <span class="robot-toggle-label"><b id="petToggleName">SkillBuddy</b><small>your AI sidekick</small></span><i class="pet-online-dot"></i>
@@ -258,4 +282,6 @@
 <script src="{{ url_for('static', filename='robot_roaming.js') }}"></script>
 <script src="{{ url_for('static', filename='pet_care.js') }}"></script>
 <script src="{{ url_for('static', filename='pet_room.js') }}"></script>
+<script src="{{ url_for('static', filename='mini_games.js') }}"></script>
+<script src="{{ url_for('static', filename='secret_events.js') }}"></script>
 </body></html>

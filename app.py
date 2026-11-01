@@ -255,6 +255,32 @@ class QuestCompletion(db.Model):
     __table_args__ = (db.UniqueConstraint("user_id", "day", "challenge_id", name="uq_quest_daily_completion"),)
 
 
+class MiniGamePlay(db.Model):
+    """One XP-eligible result per learner, game and India-local day."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    game_id = db.Column(db.String(30), nullable=False)
+    day = db.Column(db.String(10), nullable=False, index=True)
+    score = db.Column(db.Integer, nullable=False, default=0)
+    xp_awarded = db.Column(db.Integer, nullable=False, default=0)
+    played_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    __table_args__ = (db.UniqueConstraint("user_id", "game_id", "day", name="uq_minigame_daily_play"),)
+
+
+class SecretEventClaim(db.Model):
+    """A single surprise event opportunity per learner and India-local day."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    day = db.Column(db.String(10), nullable=False, index=True)
+    event_id = db.Column(db.String(40), nullable=False)
+    token_hash = db.Column(db.String(64), nullable=False)
+    xp_awarded = db.Column(db.Integer, nullable=False, default=0)
+    claimed = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    claimed_at = db.Column(db.DateTime)
+    __table_args__ = (db.UniqueConstraint("user_id", "day", name="uq_secret_event_daily"),)
+
+
 class QuestActivity(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
@@ -1662,6 +1688,197 @@ def complete_quest():
     db.session.add(QuestCompletion(user_id=user.id, day=day, challenge_id=challenge_id, points=points))
     db.session.commit()
     return jsonify({"message":f"Quest complete · +{points} XP", "points":points, "quest":_quest_payload(user, day)})
+
+# SkillSwap Mini-Games: short skill-building games with server-validated, daily XP rewards.
+_MINIGAME_QUIZ = [
+    {"q":"Which Python type stores an ordered, changeable collection?", "options":["tuple","list","set","str"], "answer":1, "why":"A list is ordered and mutable."},
+    {"q":"Which HTML element creates a hyperlink?", "options":["<p>","<img>","<a>","<linktext>"], "answer":2, "why":"The anchor element <a> creates links."},
+    {"q":"What does CPU stand for?", "options":["Central Processing Unit","Computer Personal Utility","Core Program Upload","Central Print Unit"], "answer":0, "why":"CPU means Central Processing Unit."},
+    {"q":"Which SQL command reads data from a table?", "options":["PUSH","SELECT","CHANGE","FETCHFILE"], "answer":1, "why":"SELECT retrieves rows from a database."},
+    {"q":"Which structure follows FIFO order?", "options":["Stack","Tree","Queue","Graph"], "answer":2, "why":"A queue serves the first item added."}
+]
+_MINIGAME_WORDS = [
+    ("ALGORITHM", "A step-by-step method for solving a problem."),
+    ("DATABASE", "An organised collection of information."),
+    ("PYTHON", "A popular programming language named after a comedy group."),
+    ("NETWORK", "Connected devices that exchange data."),
+    ("VARIABLE", "A named place used to store a value.")
+]
+_MINIGAME_PAIRS = [("HTML", "Web page structure"), ("CSS", "Visual styling"), ("SQL", "Database queries"), ("CPU", "Processing unit")]
+
+def _minigame_day():
+    return _quest_day()
+
+def _minigame_status(user):
+    day = _minigame_day()
+    games = []
+    for gid, title, description, base_xp in [
+        ("quiz", "Code & Tech Quiz", "Five quick questions across programming and computing.", 30),
+        ("scramble", "Word Scramble", "Unscramble a technology word using its clue.", 20),
+        ("memory", "Match the Concepts", "Pair each tech term with its correct meaning.", 25)]:
+        play = MiniGamePlay.query.filter_by(user_id=user.id, game_id=gid, day=day).first()
+        games.append({"id":gid,"title":title,"description":description,"xp":base_xp,"completed":bool(play),"score":play.score if play else None,"xp_awarded":play.xp_awarded if play else 0})
+    progress = _quest_profile(user.id)
+    return {"games":games,"xp":progress.xp,"level":progress.xp//100+1,"day":day,"daily_xp_cap":75}
+
+@app.get("/api/minigames")
+def minigames_state():
+    user, problem = require_user()
+    if problem: return problem
+    return jsonify({"minigames":_minigame_status(user)})
+
+@app.post("/api/minigames/start")
+def minigame_start():
+    user, problem = require_user()
+    if problem: return problem
+    data = request.get_json(silent=True) or {}
+    gid = str(data.get("game_id", ""))
+    if gid not in {"quiz", "scramble", "memory"}: return error("Choose a valid mini-game.", 404)
+    day = _minigame_day()
+    if MiniGamePlay.query.filter_by(user_id=user.id, game_id=gid, day=day).first():
+        return error("You have already earned today's XP for this game. You can play again tomorrow!", 409)
+    import random
+    challenges = session.get("minigame_challenges", {})
+    if gid == "quiz":
+        questions = [{"q":q["q"],"options":q["options"]} for q in _MINIGAME_QUIZ]
+        challenge = {"questions":questions,"answers":[q["answer"] for q in _MINIGAME_QUIZ]}
+        public = {"questions":questions}
+    elif gid == "scramble":
+        word, clue = random.choice(_MINIGAME_WORDS)
+        chars = list(word)
+        random.shuffle(chars)
+        scrambled = "".join(chars)
+        if scrambled == word: scrambled = scrambled[1:] + scrambled[0]
+        challenge = {"answer":word,"clue":clue}
+        public = {"scrambled":scrambled,"clue":clue}
+    else:
+        pairs = list(_MINIGAME_PAIRS)
+        left = [a for a,b in pairs]
+        right = [b for a,b in pairs]
+        random.shuffle(left); random.shuffle(right)
+        cards = [{"id":f"l{i}","text":v,"side":"left"} for i,v in enumerate(left)] + [{"id":f"r{i}","text":v,"side":"right"} for i,v in enumerate(right)]
+        random.shuffle(cards)
+        correct = {f"l{i}":f"r{right.index(desc)}" for i,(term,desc) in enumerate(pairs)}
+        # Map term card IDs to the right card IDs using the actual shuffled side lists.
+        correct = {f"l{left.index(term)}":f"r{right.index(desc)}" for term,desc in pairs}
+        challenge = {"cards":cards,"correct":correct}
+        public = {"cards":[{"id":c["id"],"text":c["text"],"side":c["side"]} for c in cards]}
+    token = secrets.token_urlsafe(18)
+    challenges[gid] = {"token":token,"day":day,"challenge":challenge,"started":datetime.now(timezone.utc).timestamp()}
+    session["minigame_challenges"] = challenges
+    return jsonify({"game_id":gid,"token":token,"challenge":public})
+
+@app.post("/api/minigames/finish")
+def minigame_finish():
+    user, problem = require_user()
+    if problem: return problem
+    data = request.get_json(silent=True) or {}
+    gid = str(data.get("game_id", "")); token = str(data.get("token", ""))
+    active = session.get("minigame_challenges", {}).get(gid)
+    if not active or not secrets.compare_digest(active.get("token", ""), token) or active.get("day") != _minigame_day():
+        return error("Game session expired. Start a new round.", 400)
+    if datetime.now(timezone.utc).timestamp() - active.get("started", 0) > 1800:
+        return error("This round timed out. Start a new game.", 400)
+    challenge = active["challenge"]
+    if gid == "quiz":
+        submitted = data.get("answers")
+        if not isinstance(submitted, list) or len(submitted) != len(challenge["answers"]): return error("Submit all five quiz answers.")
+        score = sum(1 for a,b in zip(submitted, challenge["answers"]) if type(a) is int and a == b)
+        xp = 30 if score >= 3 else 10 if score >= 1 else 0
+        details = [{"correct":type(a) is int and a == b,"explanation":_MINIGAME_QUIZ[i]["why"],"answer":_MINIGAME_QUIZ[i]["options"][b]} for i,(a,b) in enumerate(zip(submitted,challenge["answers"]))]
+        score_label = f"{score}/5 correct"
+    elif gid == "scramble":
+        answer = str(data.get("answer", "")).strip().upper().replace(" ", "")
+        score = 1 if secrets.compare_digest(answer, challenge["answer"]) else 0
+        xp = 20 if score else 0
+        details = {"correct_answer":challenge["answer"],"clue":challenge["clue"]}
+        score_label = "Solved" if score else "Not solved"
+    elif gid == "memory":
+        pairs = data.get("pairs")
+        if not isinstance(pairs, list) or len(pairs) > 4: return error("Submit a valid set of matched pairs.")
+        correct = challenge["correct"]
+        valid = set()
+        for pair in pairs:
+            if isinstance(pair, list) and len(pair) == 2:
+                a,b = pair
+                if a in correct and correct[a] == b: valid.add(a)
+                elif b in correct and correct[b] == a: valid.add(b)
+        score = len(valid)
+        xp = 25 if score >= 3 else 10 if score >= 1 else 0
+        details = {"matched":score,"total":4}
+        score_label = f"{score}/4 pairs"
+    else:
+        return error("Unknown mini-game.", 404)
+    existing = MiniGamePlay.query.filter_by(user_id=user.id, game_id=gid, day=_minigame_day()).first()
+    if existing: return error("Today's reward for this game has already been claimed.", 409)
+    if xp:
+        progress = _quest_profile(user.id)
+        progress.xp += xp
+        db.session.add(MiniGamePlay(user_id=user.id, game_id=gid, day=_minigame_day(), score=score, xp_awarded=xp))
+        db.session.commit()
+    else:
+        # A zero-XP result is recorded too, preventing repeated attempts to brute-force today's round.
+        db.session.add(MiniGamePlay(user_id=user.id, game_id=gid, day=_minigame_day(), score=score, xp_awarded=0))
+        db.session.commit()
+    challenges = session.get("minigame_challenges", {}); challenges.pop(gid, None); session["minigame_challenges"] = challenges
+    return jsonify({"message":f"Round finished · +{xp} XP", "score":score_label,"score_value":score,"xp_awarded":xp,"details":details,"minigames":_minigame_status(user)})
+
+# SkillBuddy Secret Events: rare server-issued surprises with one secure daily XP claim.
+_SECRET_EVENT_CATALOG = [
+    {"id":"starfall", "title":"Starfall Surprise!", "subtitle":"A little cosmic luck just found you.", "icon":"🌠", "animation":"stars", "xp":15, "button":"Collect 15 XP"},
+    {"id":"robot_party", "title":"SkillBuddy Party!", "subtitle":"Your robot has a surprise celebration ready.", "icon":"🤖", "animation":"party", "xp":20, "button":"Collect 20 XP"},
+    {"id":"lucky_spark", "title":"Lucky Spark!", "subtitle":"A bright idea deserves a bright reward.", "icon":"✨", "animation":"spark", "xp":25, "button":"Collect 25 XP"},
+    {"id":"golden_drop", "title":"Golden XP Drop!", "subtitle":"You discovered a rare learning bonus.", "icon":"🎁", "animation":"gold", "xp":35, "button":"Collect 35 XP"},
+]
+
+@app.get("/api/secret-events/check")
+def secret_event_check():
+    user, problem = require_user()
+    if problem: return problem
+    day = _quest_day()
+    claim = SecretEventClaim.query.filter_by(user_id=user.id, day=day).first()
+    if claim:
+        if claim.claimed:
+            return jsonify({"available":False, "claimed":True, "message":"Today's secret surprise has already been collected."})
+        event = next((e for e in _SECRET_EVENT_CATALOG if e["id"] == claim.event_id), _SECRET_EVENT_CATALOG[0])
+        return jsonify({"available":True, "event":{k:event[k] for k in ("id","title","subtitle","icon","animation","button")}, "token":session.get("secret_event_token")})
+    # Limit polling and keep surprises genuinely occasional rather than guaranteed on refresh.
+    now = datetime.now(timezone.utc).timestamp()
+    last = session.get("secret_event_last_check", 0)
+    if now - float(last or 0) < 90:
+        return jsonify({"available":False, "retry_after":90-int(now-float(last or 0))})
+    session["secret_event_last_check"] = now
+    import random
+    if random.random() > 0.16:
+        return jsonify({"available":False, "retry_after":180})
+    event = random.choice(_SECRET_EVENT_CATALOG)
+    token = secrets.token_urlsafe(32)
+    token_hash = __import__("hashlib").sha256(token.encode()).hexdigest()
+    claim = SecretEventClaim(user_id=user.id, day=day, event_id=event["id"], token_hash=token_hash, xp_awarded=event["xp"])
+    db.session.add(claim)
+    db.session.commit()
+    session["secret_event_token"] = token
+    return jsonify({"available":True, "event":{k:event[k] for k in ("id","title","subtitle","icon","animation","button")}, "token":token})
+
+@app.post("/api/secret-events/claim")
+def secret_event_claim():
+    user, problem = require_user()
+    if problem: return problem
+    data = request.get_json(silent=True) or {}
+    token = str(data.get("token", ""))
+    claim = SecretEventClaim.query.filter_by(user_id=user.id, day=_quest_day()).first()
+    if not claim or claim.claimed:
+        return error("This secret event is no longer available.", 409)
+    token_hash = __import__("hashlib").sha256(token.encode()).hexdigest()
+    if not token or not secrets.compare_digest(claim.token_hash, token_hash):
+        return error("This surprise token is invalid. Refresh SkillBuddy and try again.", 403)
+    progress = _quest_profile(user.id)
+    progress.xp += claim.xp_awarded
+    claim.claimed = True
+    claim.claimed_at = datetime.now(timezone.utc)
+    db.session.commit()
+    session.pop("secret_event_token", None)
+    return jsonify({"message":f"Secret surprise collected · +{claim.xp_awarded} XP", "xp_awarded":claim.xp_awarded, "xp":progress.xp, "level":progress.xp//100+1})
 
 # Learning Rooms: public discovery, member-only chat and hosted video sessions.
 def _room_member(room_id, user_id):

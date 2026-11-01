@@ -300,3 +300,16 @@ Room endpoints:
 - `POST /api/pet/room/daily-reward` — collect the once-daily 20-coin room bonus.
 
 Room state is stored in the `skill_buddy_room` table and created automatically by `db.create_all()`. As with the other account data, use durable PostgreSQL storage in production; ephemeral SQLite storage on a free hosting instance may be reset.
+
+
+## SkillBuddy Mini-Games
+
+The SkillBuddy companion includes three interactive learning games: Code & Tech Quiz, Word Scramble, and Match the Concepts. Each game can award XP once per India-local calendar day. Results and XP are stored server-side in `MiniGamePlay` and the existing `QuestProgress` profile, so rewards appear in the same level/XP system as daily quests. Quiz answers and memory matches are validated by the backend; each game round uses a short-lived session token.
+
+Mini-game routes: `GET /api/minigames`, `POST /api/minigames/start`, and `POST /api/minigames/finish`. The new database table is created by the app's existing `db.create_all()` startup step.
+
+## SkillBuddy Secret Events
+
+SkillBuddy can now discover occasional surprise events while a signed-in learner is using the site. Events include Starfall Surprise, SkillBuddy Party, Lucky Spark and Golden XP Drop, each with a small animated celebration and a server-authorised XP reward. A learner can receive at most one event opportunity per India-local day; closing an event does not create another opportunity, and the daily claim is protected by a unique database constraint and a one-time session token. The frontend checks periodically (and when the page becomes visible) rather than interrupting every page action. Rewards are added to the existing Quest XP total and trigger a Quest refresh.
+
+No additional Python packages are required. The `SecretEventClaim` table is created by the app's existing `db.create_all()` startup routine. For production, use persistent PostgreSQL storage so XP and event-claim history survive service restarts and redeployments.
