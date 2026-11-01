@@ -288,3 +288,15 @@ The robot is decorative and supportive; its emotional expressions are playful an
 The SkillBuddy assistant now includes an account-backed virtual pet care panel with Happiness, Energy and Friendship meters. Learners can Play (costs 15 energy), Cuddle (small energy cost), Rest (restores energy), Talk (builds friendship) and give one Daily Treat per UTC day. Stats are clamped to 0–100 and stored per logged-in user in the `skill_buddy_pet` table. Energy regenerates by one point per 20 minutes while the user is away. The system has a short action cooldown and prevents duplicate daily treats.
 
 Pet care is optional and non-punitive: happiness and friendship do not decay, missed days do not reset anything, and users are never blocked from learning features. Guest users can see the care panel but must log in to save pet progress. New database table is created by the existing `db.create_all()` startup step. API endpoints: `GET /api/pet/state` and `POST /api/pet/action` with JSON `{"action":"play|cuddle|rest|talk|treat"}`.
+
+## SkillBuddy Personal Room
+
+The SkillBuddy companion panel includes an account-backed personal room. Each signed-in user has an independent coin balance, owned decoration inventory, and equipped room layout. The starter room includes a plant, lamp, and wall poster. Users can collect a once-per-UTC-day 20-coin room bonus, unlock cosmetic items from the decoration shop, and equip owned items into their matching room slots. Decorations are cosmetic only and do not affect learning access, XP, or account standing.
+
+Room endpoints:
+- `GET /api/pet/room` — retrieve the user's room, inventory, catalog, and equipped layout.
+- `POST /api/pet/room/buy` — unlock a catalog decoration using room coins.
+- `POST /api/pet/room/decorate` — equip or clear an owned decoration in a matching slot.
+- `POST /api/pet/room/daily-reward` — collect the once-daily 20-coin room bonus.
+
+Room state is stored in the `skill_buddy_room` table and created automatically by `db.create_all()`. As with the other account data, use durable PostgreSQL storage in production; ephemeral SQLite storage on a free hosting instance may be reset.

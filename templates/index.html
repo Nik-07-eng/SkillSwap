@@ -222,6 +222,19 @@
       <p class="pet-care-note" id="petCareMessage" aria-live="polite">Your buddy's energy gently recharges while you're away. No streaks or punishments here.</p>
       <div class="pet-care-login" id="petCareLogin" hidden>Log in to save your pet's happiness, energy and friendship to your account.</div>
     </section>
+    <section class="pet-room" id="petRoomPanel" aria-label="SkillBuddy personal room">
+      <div class="pet-room-heading"><div><span class="pet-care-kicker">A LITTLE PLACE TO CALL HOME</span><h3>SkillBuddy's Room <span>🏠</span></h3><p>Decorate a cosy corner for your robot.</p></div><span class="room-coins" id="petRoomCoins">🪙 —</span></div>
+      <div class="pet-room-scene" id="petRoomScene" aria-label="Your decorated robot room">
+        <div class="room-window" data-room-slot="window">🪟</div><div class="room-wall-art" data-room-slot="wall">🌟</div>
+        <div class="room-robot"><span>🤖</span><small>SkillBuddy</small></div>
+        <div class="room-lamp" data-room-slot="lamp">💡</div><div class="room-plant" data-room-slot="plant">🪴</div>
+        <div class="room-furniture" data-room-slot="furniture"></div><div class="room-seat" data-room-slot="seat"></div><div class="room-trophy" data-room-slot="trophy"></div><div class="room-rug" data-room-slot="floor"></div>
+      </div>
+      <div class="pet-room-actions"><button type="button" id="petRoomDaily" class="room-daily-button">🎁 Collect daily +20 coins</button><span id="petRoomMessage" aria-live="polite">Your room, your style. Decorations are just for fun.</span></div>
+      <div class="pet-room-shop-head"><strong>Decoration shop</strong><small>Unlock items, then tap Equip.</small></div>
+      <div class="pet-room-shop" id="petRoomShop"><div class="room-shop-loading">Your decorations are loading…</div></div>
+      <div class="pet-room-login" id="petRoomLogin" hidden>Log in to save your personal room and decoration collection.</div>
+    </section>
     <div class="assistant-intro"><strong id="petGreeting">Hey there, learner! 👋</strong><p>I'm your little SkillSwap robot. Ask me anything, tell me how learning is going, or let me guide you around.</p></div>
     <div class="assistant-quick" id="assistantQuick"><button type="button" data-question="Help me find a learning partner">Find a partner</button><button type="button" data-question="What should I learn next?">What to learn?</button><button type="button" data-question="How do I use SkillSwap?">Guide me</button></div>
     <div class="assistant-messages" id="assistantMessages" aria-live="polite"><div class="chat-message bot">Beep boop! 🤖 I'm here whenever you need a hand. What's on your mind?</div></div>
@@ -244,4 +257,5 @@
 <script src="{{ url_for('static', filename='arena.js') }}"></script>
 <script src="{{ url_for('static', filename='robot_roaming.js') }}"></script>
 <script src="{{ url_for('static', filename='pet_care.js') }}"></script>
+<script src="{{ url_for('static', filename='pet_room.js') }}"></script>
 </body></html>

@@ -323,6 +323,18 @@ class ArenaVote(db.Model):
 
 
 
+class SkillBuddyRoom(db.Model):
+    """Per-user decorated robot room. Inventory and layout are stored as JSON text."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, unique=True, index=True)
+    coins = db.Column(db.Integer, nullable=False, default=120)
+    owned_items = db.Column(db.Text, nullable=False, default='["plant_sprout", "lamp_basic", "poster_stars"]')
+    equipped = db.Column(db.Text, nullable=False, default='{"plant":"plant_sprout","lamp":"lamp_basic","wall":"poster_stars"}')
+    last_daily_reward = db.Column(db.String(10), default="")
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+
 class SkillBuddyPet(db.Model):
     """Per-account virtual pet care state. Stats are playful and never affect account access."""
     id = db.Column(db.Integer, primary_key=True)
@@ -2107,6 +2119,114 @@ def pet_action():
     if action == "treat": pet.last_treat_date = today
     db.session.commit()
     return jsonify({"message": spec["message"], "pet": _pet_state_public(pet), "action": action})
+
+
+# SkillBuddy personal room: a small cosmetic space with account-backed decorations.
+_PET_ROOM_CATALOG = {
+    "plant_sprout": {"name":"Tiny Sprout", "emoji":"🪴", "slot":"plant", "price":0, "description":"A little green friend."},
+    "lamp_basic": {"name":"Cozy Lamp", "emoji":"💡", "slot":"lamp", "price":0, "description":"A warm glow for study time."},
+    "poster_stars": {"name":"Star Poster", "emoji":"🌟", "slot":"wall", "price":0, "description":"A reminder to keep reaching."},
+    "bookshelf": {"name":"Mini Bookshelf", "emoji":"📚", "slot":"furniture", "price":45, "description":"A shelf full of big ideas."},
+    "beanbag": {"name":"Cloud Beanbag", "emoji":"🛋️", "slot":"seat", "price":55, "description":"The perfect place for a power nap."},
+    "trophy_bronze": {"name":"Bronze Trophy", "emoji":"🏆", "slot":"trophy", "price":65, "description":"A little celebration of progress."},
+    "window_sky": {"name":"Sunny Window", "emoji":"🪟", "slot":"window", "price":70, "description":"A bright view for bright ideas."},
+    "wall_moon": {"name":"Moon Wall Art", "emoji":"🌙", "slot":"wall", "price":35, "description":"A calm night-sky accent."},
+    "plant_flower": {"name":"Flower Pot", "emoji":"🌷", "slot":"plant", "price":40, "description":"A cheerful splash of colour."},
+    "arcade": {"name":"Mini Arcade", "emoji":"🕹️", "slot":"furniture", "price":90, "description":"A tiny corner for play breaks."},
+    "rug": {"name":"Rainbow Rug", "emoji":"🌈", "slot":"floor", "price":50, "description":"A soft colourful landing."},
+    "trophy_gem": {"name":"Crystal Award", "emoji":"💎", "slot":"trophy", "price":110, "description":"A rare-looking room highlight."},
+    "robot_bed": {"name":"Robot Bed", "emoji":"🛏️", "slot":"seat", "price":85, "description":"A comfy recharge station."},
+}
+_PET_ROOM_SLOTS = ["wall", "window", "lamp", "plant", "furniture", "seat", "trophy", "floor"]
+
+
+def _get_or_create_pet_room(user):
+    room = SkillBuddyRoom.query.filter_by(user_id=user.id).first()
+    if not room:
+        room = SkillBuddyRoom(user_id=user.id)
+        db.session.add(room)
+        db.session.commit()
+    try:
+        room.owned_items = room.owned_items or '[]'
+        room.equipped = room.equipped or '{}'
+        owned = json.loads(room.owned_items)
+        equipped = json.loads(room.equipped)
+        if not isinstance(owned, list): owned = []
+        if not isinstance(equipped, dict): equipped = {}
+    except (TypeError, ValueError):
+        owned, equipped = [], {}
+    return room, owned, equipped
+
+
+def _pet_room_public(room, owned, equipped):
+    return {
+        "coins": room.coins,
+        "owned_items": owned,
+        "equipped": equipped,
+        "catalog": [{"id": key, **value, "owned": key in owned} for key, value in _PET_ROOM_CATALOG.items()],
+        "slots": _PET_ROOM_SLOTS,
+        "daily_reward_available": room.last_daily_reward != datetime.now(timezone.utc).date().isoformat(),
+    }
+
+
+@app.get("/api/pet/room")
+def pet_room_state():
+    user, auth_error = require_user()
+    if auth_error: return auth_error
+    room, owned, equipped = _get_or_create_pet_room(user)
+    return jsonify({"room": _pet_room_public(room, owned, equipped)})
+
+
+@app.post("/api/pet/room/buy")
+def pet_room_buy():
+    user, auth_error = require_user()
+    if auth_error: return auth_error
+    data = request.get_json(silent=True) or {}
+    item_id = str(data.get("item_id", ""))
+    item = _PET_ROOM_CATALOG.get(item_id)
+    if not item: return error("That decoration is not available.", 404)
+    room, owned, equipped = _get_or_create_pet_room(user)
+    if item_id in owned: return error("You already own this decoration.", 409)
+    if room.coins < item["price"]: return error("Not enough room coins yet. Try the daily room bonus or care for SkillBuddy.", 409)
+    room.coins -= item["price"]
+    owned.append(item_id)
+    room.owned_items = json.dumps(owned)
+    db.session.commit()
+    return jsonify({"message": f"{item['name']} added to your collection!", "room": _pet_room_public(room, owned, equipped)})
+
+
+@app.post("/api/pet/room/decorate")
+def pet_room_decorate():
+    user, auth_error = require_user()
+    if auth_error: return auth_error
+    data = request.get_json(silent=True) or {}
+    slot = str(data.get("slot", ""))
+    item_id = str(data.get("item_id", ""))
+    if slot not in _PET_ROOM_SLOTS: return error("Choose a valid room area.")
+    room, owned, equipped = _get_or_create_pet_room(user)
+    if item_id:
+        item = _PET_ROOM_CATALOG.get(item_id)
+        if not item or item_id not in owned: return error("Unlock this decoration before placing it.", 403)
+        if item["slot"] != slot: return error("That decoration belongs in a different room area.")
+        equipped[slot] = item_id
+    else:
+        equipped.pop(slot, None)
+    room.equipped = json.dumps(equipped)
+    db.session.commit()
+    return jsonify({"message":"Your room has been updated!", "room":_pet_room_public(room, owned, equipped)})
+
+
+@app.post("/api/pet/room/daily-reward")
+def pet_room_daily_reward():
+    user, auth_error = require_user()
+    if auth_error: return auth_error
+    room, owned, equipped = _get_or_create_pet_room(user)
+    today = datetime.now(timezone.utc).date().isoformat()
+    if room.last_daily_reward == today: return error("Your room bonus has already been collected today.", 409)
+    room.coins = min(99999, room.coins + 20)
+    room.last_daily_reward = today
+    db.session.commit()
+    return jsonify({"message":"Daily room bonus collected: +20 coins! ✨", "room":_pet_room_public(room, owned, equipped)})
 
 
 with app.app_context():
