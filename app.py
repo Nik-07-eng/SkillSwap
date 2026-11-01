@@ -189,6 +189,51 @@ class LearningRoomMessage(db.Model):
     sender = db.relationship("User")
 
 
+class CommunityPost(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    author_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    kind = db.Column(db.String(20), nullable=False, default="discussion")  # discussion or project
+    title = db.Column(db.String(140), nullable=False)
+    body = db.Column(db.String(3000), nullable=False)
+    topic = db.Column(db.String(60), default="General")
+    project_url = db.Column(db.String(1000), default="")
+    tags = db.Column(db.String(300), default="")
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    author = db.relationship("User", foreign_keys=[author_id])
+
+class CommunityComment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    post_id = db.Column(db.Integer, db.ForeignKey("community_post.id"), nullable=False, index=True)
+    author_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    body = db.Column(db.String(1200), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    author = db.relationship("User", foreign_keys=[author_id])
+
+class CommunityLike(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    post_id = db.Column(db.Integer, db.ForeignKey("community_post.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    __table_args__ = (db.UniqueConstraint("post_id", "user_id", name="uq_community_like"),)
+
+class CommunityFollow(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    follower_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    followed_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    __table_args__ = (db.UniqueConstraint("follower_id", "followed_id", name="uq_community_follow"),)
+
+class CommunityConnection(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    requester_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    recipient_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    status = db.Column(db.String(20), nullable=False, default="pending", index=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    requester = db.relationship("User", foreign_keys=[requester_id])
+    recipient = db.relationship("User", foreign_keys=[recipient_id])
+    __table_args__ = (db.UniqueConstraint("requester_id", "recipient_id", name="uq_community_connection"),)
+
 class QuestProgress(db.Model):
     """Server-side XP and streak totals for a SkillSwap learner."""
     id = db.Column(db.Integer, primary_key=True)
@@ -1477,6 +1522,150 @@ def post_learning_room_message(room_id):
     return jsonify({"message": {"id": msg.id, "sender_id": user.id,
         "sender_name": user.name, "body": msg.body,
         "created_at": msg.created_at.isoformat() if msg.created_at else None}}), 201
+
+# --------------------------- Community API ---------------------------
+def _community_post_public(post, viewer_id):
+    comments = CommunityComment.query.filter_by(post_id=post.id).order_by(CommunityComment.created_at.asc()).limit(30).all()
+    liked = CommunityLike.query.filter_by(post_id=post.id, user_id=viewer_id).first() is not None if viewer_id else False
+    like_count = CommunityLike.query.filter_by(post_id=post.id).count()
+    return {"id": post.id, "kind": post.kind, "title": post.title, "body": post.body,
+        "topic": post.topic or "General", "project_url": post.project_url or "",
+        "tags": [x.strip() for x in (post.tags or "").split(",") if x.strip()],
+        "author_id": post.author_id, "author_name": post.author.name if post.author else "Learner",
+        "author_department": post.author.department if post.author else "",
+        "created_at": post.created_at.isoformat() if post.created_at else None,
+        "like_count": like_count, "liked": liked,
+        "comment_count": CommunityComment.query.filter_by(post_id=post.id).count(),
+        "comments": [{"id": c.id, "author_id": c.author_id, "author_name": c.author.name if c.author else "Learner",
+            "body": c.body, "created_at": c.created_at.isoformat() if c.created_at else None} for c in comments],
+        "is_author": viewer_id == post.author_id if viewer_id else False,
+        "following_author": CommunityFollow.query.filter_by(follower_id=viewer_id, followed_id=post.author_id).first() is not None if viewer_id and viewer_id != post.author_id else False}
+
+@app.get("/api/community/feed")
+def community_feed():
+    user = current_user()
+    kind = request.args.get("kind", "all").strip().lower()
+    q = request.args.get("q", "").strip()[:80]
+    query = CommunityPost.query
+    if kind in ("discussion", "project"):
+        query = query.filter_by(kind=kind)
+    if q:
+        term = f"%{q}%"
+        query = query.filter(or_(CommunityPost.title.ilike(term), CommunityPost.body.ilike(term), CommunityPost.topic.ilike(term), CommunityPost.tags.ilike(term)))
+    posts = query.order_by(CommunityPost.created_at.desc()).limit(60).all()
+    uid = user.id if user else None
+    return jsonify({"posts": [_community_post_public(p, uid) for p in posts], "logged_in": bool(user)})
+
+@app.post("/api/community/posts")
+def community_create_post():
+    user, auth_error = require_user()
+    if auth_error: return auth_error
+    data = request.get_json(silent=True) or {}
+    kind = str(data.get("kind", "discussion")).strip().lower()
+    title = str(data.get("title", "")).strip()
+    body = str(data.get("body", "")).strip()
+    topic = str(data.get("topic", "General")).strip()[:60] or "General"
+    url = str(data.get("project_url", "")).strip()[:1000]
+    tags = data.get("tags", "")
+    if kind not in ("discussion", "project"): return error("Choose a discussion or project post.")
+    if not title or len(title) > 140: return error("Title must contain 1–140 characters.")
+    if not body or len(body) > 3000: return error("Post text must contain 1–3000 characters.")
+    if kind == "project" and url and not re.match(r"^https?://", url, re.I): return error("Project links must start with http:// or https://.")
+    if isinstance(tags, list): tags = ",".join(str(t).strip() for t in tags[:8] if str(t).strip())
+    tags = str(tags).strip()[:300]
+    post = CommunityPost(author_id=user.id, kind=kind, title=title, body=body, topic=topic, project_url=url, tags=tags)
+    db.session.add(post); db.session.commit()
+    return jsonify({"message": "Your post is now in the community feed.", "post": _community_post_public(post, user.id)}), 201
+
+@app.delete("/api/community/posts/<int:post_id>")
+def community_delete_post(post_id):
+    user, auth_error = require_user()
+    if auth_error: return auth_error
+    post = db.session.get(CommunityPost, post_id)
+    if not post: return error("Post not found.", 404)
+    if post.author_id != user.id: return error("You can delete only your own posts.", 403)
+    CommunityComment.query.filter_by(post_id=post.id).delete()
+    CommunityLike.query.filter_by(post_id=post.id).delete()
+    db.session.delete(post); db.session.commit()
+    return jsonify({"message": "Post deleted."})
+
+@app.post("/api/community/posts/<int:post_id>/like")
+def community_toggle_like(post_id):
+    user, auth_error = require_user()
+    if auth_error: return auth_error
+    post = db.session.get(CommunityPost, post_id)
+    if not post: return error("Post not found.", 404)
+    like = CommunityLike.query.filter_by(post_id=post_id, user_id=user.id).first()
+    if like: db.session.delete(like); liked = False
+    else: db.session.add(CommunityLike(post_id=post_id, user_id=user.id)); liked = True
+    db.session.commit()
+    return jsonify({"liked": liked, "like_count": CommunityLike.query.filter_by(post_id=post_id).count()})
+
+@app.post("/api/community/posts/<int:post_id>/comments")
+def community_add_comment(post_id):
+    user, auth_error = require_user()
+    if auth_error: return auth_error
+    post = db.session.get(CommunityPost, post_id)
+    if not post: return error("Post not found.", 404)
+    data = request.get_json(silent=True) or {}; body = str(data.get("body", "")).strip()
+    if not body or len(body) > 1200: return error("Comment must contain 1–1200 characters.")
+    comment = CommunityComment(post_id=post_id, author_id=user.id, body=body)
+    db.session.add(comment); db.session.commit()
+    return jsonify({"comment": {"id": comment.id, "author_id": user.id, "author_name": user.name,
+        "body": comment.body, "created_at": comment.created_at.isoformat()}}), 201
+
+@app.post("/api/community/users/<int:target_id>/follow")
+def community_toggle_follow(target_id):
+    user, auth_error = require_user()
+    if auth_error: return auth_error
+    if target_id == user.id: return error("You cannot follow your own profile.")
+    target = db.session.get(User, target_id)
+    if not target: return error("Learner not found.", 404)
+    row = CommunityFollow.query.filter_by(follower_id=user.id, followed_id=target_id).first()
+    if row: db.session.delete(row); following = False
+    else: db.session.add(CommunityFollow(follower_id=user.id, followed_id=target_id)); following = True
+    db.session.commit()
+    return jsonify({"following": following, "followers": CommunityFollow.query.filter_by(followed_id=target_id).count()})
+
+@app.post("/api/community/users/<int:target_id>/connect")
+def community_connect(target_id):
+    user, auth_error = require_user()
+    if auth_error: return auth_error
+    if target_id == user.id: return error("You cannot connect with yourself.")
+    if not db.session.get(User, target_id): return error("Learner not found.", 404)
+    existing = CommunityConnection.query.filter(or_(
+        (CommunityConnection.requester_id == user.id) & (CommunityConnection.recipient_id == target_id),
+        (CommunityConnection.requester_id == target_id) & (CommunityConnection.recipient_id == user.id))).first()
+    if existing:
+        if existing.status == "accepted": return jsonify({"status": "accepted", "message": "You are already connected."})
+        if existing.status == "pending" and existing.recipient_id == user.id:
+            existing.status = "accepted"; db.session.commit()
+            return jsonify({"status": "accepted", "message": "Connection accepted."})
+        return jsonify({"status": existing.status, "message": "A connection request already exists."})
+    db.session.add(CommunityConnection(requester_id=user.id, recipient_id=target_id)); db.session.commit()
+    return jsonify({"status": "pending", "message": "Connection request sent."}), 201
+
+@app.get("/api/community/summary")
+def community_summary():
+    user, auth_error = require_user()
+    if auth_error: return auth_error
+    followers = CommunityFollow.query.filter_by(followed_id=user.id).count()
+    following = CommunityFollow.query.filter_by(follower_id=user.id).count()
+    connections = CommunityConnection.query.filter(or_(
+        ((CommunityConnection.requester_id == user.id) | (CommunityConnection.recipient_id == user.id)) & (CommunityConnection.status == "accepted"))).count()
+    pending = CommunityConnection.query.filter_by(recipient_id=user.id, status="pending").count()
+    posts = CommunityPost.query.filter_by(author_id=user.id).count()
+    return jsonify({"followers": followers, "following": following, "connections": connections, "pending_requests": pending, "posts": posts})
+
+@app.get("/api/community/connections")
+def community_connections():
+    user, auth_error = require_user()
+    if auth_error: return auth_error
+    rows = CommunityConnection.query.filter(or_(CommunityConnection.requester_id == user.id, CommunityConnection.recipient_id == user.id)).order_by(CommunityConnection.created_at.desc()).limit(50).all()
+    return jsonify({"connections": [{"id": r.id, "status": r.status, "requester_id": r.requester_id,
+        "other_id": r.recipient_id if r.requester_id == user.id else r.requester_id,
+        "other_name": (r.recipient if r.requester_id == user.id else r.requester).name,
+        "incoming": r.recipient_id == user.id and r.status == "pending"} for r in rows]})
 
 with app.app_context():
     db.create_all()

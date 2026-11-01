@@ -205,3 +205,30 @@ SkillSwap Quest adds a server-backed daily engagement and recognition system alo
 - New frontend module: `static/quest.js`; new page: SkillSwap Quest.
 
 Quest rewards are intentionally limited to verified daily activities. The leaderboard is motivational and does not represent academic certification or formal skill assessment.
+
+
+## SkillSwap Community — posts, projects, discussions and connections
+
+The Community section adds a public learner feed backed by the Flask database. Signed-in learners can publish discussion/question posts or project showcases, add a topic and tags, optionally attach a project URL, comment on posts, like/unlike posts, follow learners, and send/accept connection requests. Visitors can browse public posts; authentication is required for publishing and social actions. Users can delete only their own posts. Deleting a post also removes its comments and likes.
+
+### Community database tables
+- `community_post`: discussion and project showcase posts.
+- `community_comment`: comments attached to posts.
+- `community_like`: one like per user per post (unique constraint).
+- `community_follow`: follower/followed relationships (unique constraint).
+- `community_connection`: pending and accepted connection requests (unique directional pair).
+
+Tables are created automatically by `db.create_all()` when the app starts. Existing tables and records are not dropped.
+
+### Community API
+- `GET /api/community/feed?kind=all&q=` — public feed, optional type and search filters.
+- `POST /api/community/posts` — publish a discussion or project.
+- `DELETE /api/community/posts/<id>` — delete your own post.
+- `POST /api/community/posts/<id>/like` — toggle like.
+- `POST /api/community/posts/<id>/comments` — add a comment.
+- `POST /api/community/users/<id>/follow` — toggle follow.
+- `POST /api/community/users/<id>/connect` — send a request or accept an incoming request.
+- `GET /api/community/summary` — own post, follower, following and connection counts.
+- `GET /api/community/connections` — connection list and pending incoming requests.
+
+The feed is refreshed when opened and when users perform actions; it is not a push/WebSocket feed. Project URLs are rendered as external links and are not fetched by the server. Use HTTPS links and share only content you have permission to publish. For a public deployment, use PostgreSQL and persistent file/object storage as appropriate; the community currently stores text and external project links only.

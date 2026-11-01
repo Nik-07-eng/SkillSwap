@@ -45,6 +45,7 @@
       </div>
       <button class="nav-item" data-view="rooms"><span class="nav-icon">◉</span> Learning Rooms <span class="nav-count" id="roomNavCount">0</span></button>
       <button class="nav-item quest-nav-item" data-view="quest"><span class="nav-icon">⚡</span> SkillSwap Quest <span class="nav-count quest-nav-pill">XP</span></button>
+      <button class="nav-item" data-view="community"><span class="nav-icon">◎</span> SkillSwap Community <span class="nav-count" id="communityNavCount">NEW</span></button>
       <button class="nav-item" data-view="requests"><span class="nav-icon">⇄</span> Skill exchanges</button>
       <button class="nav-item" data-view="collaborate"><span class="nav-icon">☷</span> Collaborate</button>
       <button class="nav-item" data-view="profile"><span class="nav-icon">◎</span> My profile</button>
@@ -137,6 +138,21 @@
         <section class="quest-panel quest-achievements-panel"><div class="quest-panel-head"><div><div class="eyebrow">MILESTONES & RECOGNITION</div><h2>Achievements</h2><p class="muted">Unlock badges through consistent learning and helping the community.</p></div><span class="quest-achievement-count" id="questAchievementCount">0 / 6 unlocked</span></div><div id="questAchievements" class="quest-achievements-grid"><div class="empty-state">Your achievements will appear here.</div></div></section>
         <section class="quest-room-cta"><div><div class="eyebrow">THE BEST QUEST IS LEARNING TOGETHER</div><h2>Ready to learn with other students?</h2><p>Join a live learning room, exchange ideas in the group discussion and make progress together.</p></div><button class="primary-button" type="button" data-open-view="rooms">Find a learning room ↗</button></section>
       </section>
+      <section class="view" id="view-community">
+        <div class="page-heading community-heading"><div><div class="eyebrow">SHARE · DISCOVER · CONNECT</div><h1>SkillSwap Community<span class="gradient-text">.</span></h1><p class="lead">A student-powered space to ask questions, share projects, celebrate progress and build meaningful learning connections.</p></div><div class="community-hero-badge"><span>✳</span><b>GROW TOGETHER</b><small>Ideas become better when shared.</small></div></div>
+        <div class="community-stats" id="communityStats"><article><b>—</b><span>Your posts</span></article><article><b>—</b><span>Followers</span></article><article><b>—</b><span>Following</span></article><article><b>—</b><span>Connections</span></article></div>
+        <div class="community-layout"><main class="community-main">
+          <section class="community-compose-card"><div class="community-compose-top"><div class="community-avatar" id="communityComposerAvatar">G</div><div><b>Share something with the community</b><small>Ask a question, start a discussion or showcase a project.</small></div></div>
+            <form id="communityPostForm" class="community-post-form"><div class="community-form-row"><label>Post type<select name="kind" id="communityPostKind"><option value="discussion">Discussion / Question</option><option value="project">Project showcase</option></select></label><label>Topic<input name="topic" maxlength="60" placeholder="e.g. Web Development" value="General"></label></div><label>Title<input name="title" maxlength="140" required placeholder="Give your post a clear title…"></label><label>Your message<textarea name="body" maxlength="3000" rows="4" required placeholder="Share what you are learning, ask for help, or tell us what you built…"></textarea></label><div id="communityProjectLinkWrap" hidden><label>Project URL<input name="project_url" type="url" placeholder="https://your-project.example"></label></div><label>Tags <span class="muted">OPTIONAL · COMMA SEPARATED</span><input name="tags" maxlength="300" placeholder="Python, UI Design, Beginner"></label><div class="community-form-footer"><small>Be respectful. Never share passwords or private information.</small><button class="primary-button" type="submit">Publish to community ↗</button></div></form>
+          </section>
+          <div class="community-feed-toolbar"><div><div class="eyebrow">THE COMMUNITY FEED</div><h2>Ideas from learners</h2></div><div class="community-feed-controls"><input id="communitySearch" type="search" placeholder="Search posts…"><select id="communityFilter" aria-label="Filter posts"><option value="all">All posts</option><option value="discussion">Discussions</option><option value="project">Projects</option></select><button class="secondary-button" id="communityRefresh" type="button">↻</button></div></div>
+          <div id="communityFeed" class="community-feed"><div class="empty-state">Loading community posts…</div></div>
+        </main><aside class="community-side">
+          <section class="community-side-card"><div class="eyebrow">YOUR NETWORK</div><h3>Connections & activity</h3><div id="communityNetwork"><p class="muted">Log in to see your community network.</p></div><button type="button" class="secondary-button full-width" data-open-view="discover">Discover learners ↗</button></section>
+          <section class="community-side-card community-guidelines"><div class="eyebrow">COMMUNITY GUIDELINES</div><h3>Make this a good space.</h3><ul><li>Be kind and constructive.</li><li>Credit creators and sources.</li><li>Share useful context with questions.</li><li>Give feedback that helps people improve.</li><li>Keep personal information private.</li></ul></section>
+          <section class="community-side-card"><div class="eyebrow">KEEP LEARNING</div><h3>Turn connections into progress.</h3><p class="muted">Find a peer, join a room or start a skill exchange after discovering someone whose work interests you.</p><button type="button" class="primary-button full-width" data-open-view="rooms">Explore learning rooms ↗</button></section>
+        </aside></div>
+      </section>
       <section class="view" id="view-requests"><div class="page-heading"><div><div class="eyebrow">YOUR EXCHANGE JOURNEY</div><h1>Skill exchanges<span class="gradient-text">.</span></h1><p class="lead">Keep track of requests and celebrate each step of your learning journey.</p></div><div class="heading-badge">⇄ <span>Every exchange starts somewhere</span></div></div><div id="swapsList" class="swaps-list"><div class="empty-state">Log in to manage your exchanges.</div></div></section>
       <section class="view" id="view-collaborate">
         <div class="page-heading"><div><div class="eyebrow">LEARN BY BUILDING TOGETHER</div><h1>Collaborate<span class="gradient-text">.</span></h1><p class="lead">Chat with your exchange partner, share resources, plan projects, and meet online.</p></div></div>
@@ -182,4 +198,5 @@
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 <script src="{{ url_for('static', filename='learning_rooms.js') }}"></script>
 <script src="{{ url_for('static', filename='quest.js') }}"></script>
+<script src="{{ url_for('static', filename='community.js') }}"></script>
 </body></html>
