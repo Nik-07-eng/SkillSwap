@@ -18,6 +18,7 @@
       <button class="nav-item" data-view="matches"><span class="nav-icon">✳</span> AI Smart Match <span class="nav-count" id="matchCount">0</span></button>
       <button class="nav-item" data-view="learning-path"><span class="nav-icon">⌁</span> Learning Path</button>
       <button class="nav-item" data-view="skill-analyzer"><span class="nav-icon">⌖</span> Skill Analyzer</button>
+      <button class="nav-item" data-view="feedback-analyzer"><span class="nav-icon">◉</span> Feedback Analyzer</button>
       <button class="nav-item" data-view="requests"><span class="nav-icon">⇄</span> Skill exchanges</button>
       <button class="nav-item" data-view="collaborate"><span class="nav-icon">☷</span> Collaborate</button>
       <button class="nav-item" data-view="profile"><span class="nav-icon">◎</span> My profile</button>
@@ -71,6 +72,13 @@
           </form>
           <div id="skillAnalyzerOutput" class="learning-output"><div class="learning-empty"><span>⌖</span><h2>Your skill analysis will appear here</h2><p>Enter a target role and your current skills to see strengths, missing competencies and recommended next steps.</p></div></div>
         </div>
+      </section>
+      <section class="view" id="view-feedback-analyzer">
+        <div class="page-heading"><div><div class="eyebrow">STUDENT EXPERIENCE INSIGHTS</div><h1>Feedback Analyzer<span class="gradient-text">.</span></h1><p class="lead">Understand the sentiment in feedback you receive, spot recurring themes, and identify practical ways to improve your skill-sharing sessions.</p></div><div class="heading-badge">✦ <span>Sentiment analysis</span></div></div>
+        <div class="ai-method-card"><div><strong>How the analysis works</strong><p>SkillSwap analyses the comments you have received using a sentiment lexicon with negation and intensity handling, blends the text score with the review's star rating, and tags recurring feedback themes. Your received reviews are visible only to you here.</p></div><span class="ai-method-chip">NLP · Sentiment scoring · Aspect analysis</span></div>
+        <div class="feedback-analyzer-actions"><p id="feedbackAnalyzerNotice" class="muted">Log in to analyse feedback received on your completed skill exchanges.</p><button class="secondary-button" type="button" id="refreshFeedbackAnalysis">Refresh analysis ↻</button></div>
+        <div id="feedbackAnalyzerOutput" class="feedback-analyzer-output"><div class="learning-empty"><span>◉</span><h2>Your feedback insights will appear here</h2><p>After a completed exchange, your partner can leave a star rating and comment. The analyzer will classify sentiment and surface recurring themes.</p></div></div>
+        <section class="feedback-text-lab"><div class="collab-card-head"><div><div class="eyebrow">TRY THE TEXT ANALYSER</div><h2>Analyse a feedback sample</h2></div><span class="ai-method-chip">Not saved</span></div><p class="muted">Paste a review to see how the sentiment engine classifies it. This preview is not added to your profile or saved to the database.</p><form id="feedbackTextForm" class="stack-form"><label>Feedback text<textarea name="comment" maxlength="1000" required placeholder="e.g. The mentor explained each topic clearly and was very patient. I learned a lot."></textarea></label><label>Star rating<select name="rating"><option value="5">★★★★★ — Excellent</option><option value="4">★★★★ — Very good</option><option value="3" selected>★★★ — Good</option><option value="2">★★ — Needs improvement</option><option value="1">★ — Poor</option></select></label><button class="primary-button" id="analyzeFeedbackTextBtn" type="submit">Analyze sentiment ↗</button></form><div id="feedbackTextResult" class="feedback-text-result" aria-live="polite"></div></section>
       </section>
       <section class="view" id="view-requests"><div class="page-heading"><div><div class="eyebrow">YOUR EXCHANGE JOURNEY</div><h1>Skill exchanges<span class="gradient-text">.</span></h1><p class="lead">Keep track of requests and celebrate each step of your learning journey.</p></div><div class="heading-badge">⇄ <span>Every exchange starts somewhere</span></div></div><div id="swapsList" class="swaps-list"><div class="empty-state">Log in to manage your exchanges.</div></div></section>
       <section class="view" id="view-collaborate">

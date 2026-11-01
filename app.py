@@ -139,6 +139,82 @@ class Feedback(db.Model):
     reviewee = db.relationship("User", foreign_keys=[reviewee_id])
     __table_args__ = (db.UniqueConstraint("swap_id", "reviewer_id", name="uq_feedback_swap_reviewer"),)
 
+# Transparent, dependency-free sentiment lexicon used by Feedback Analyzer.
+# This is an explainable NLP heuristic, not a trained deep-learning model.
+_SENTIMENT_LEXICON = {
+    "excellent": 2.2, "amazing": 2.0, "awesome": 2.0, "fantastic": 2.2,
+    "great": 1.7, "good": 1.2, "helpful": 1.6, "helped": 1.3,
+    "clear": 1.2, "clearly": 1.2, "patient": 1.3, "supportive": 1.7,
+    "friendly": 1.2, "kind": 1.1, "knowledgeable": 1.5, "understand": 0.8,
+    "understood": 1.0, "learned": 0.8, "enjoyed": 1.2, "recommend": 1.5,
+    "organized": 1.0, "practical": 0.8, " engaging": 0.8, "interactive": 0.9,
+    "improve": 0.3, "better": 0.8, "perfect": 2.0, "useful": 1.3,
+    "effective": 1.4, "confident": 1.1, "inspiring": 1.5,
+    "bad": -1.5, "poor": -1.8, "terrible": -2.2, "awful": -2.2,
+    "confusing": -1.5, "confused": -1.2, "unclear": -1.5, "unhelpful": -1.8,
+    "rude": -2.0, "late": -0.8, "waste": -1.8, "wasted": -1.8,
+    "boring": -1.2, "disappointed": -1.8, "difficult": -0.5,
+    "slow": -0.6, "disorganized": -1.4, "ignored": -1.6,
+    "unprepared": -1.5, "impatient": -1.6, "incomplete": -1.0,
+    "unprofessional": -2.0, "problem": -0.5, "problems": -0.5,
+}
+_SENTIMENT_NEGATORS = {"not", "never", "no", "hardly", "isn't", "wasn't", "didn't", "dont", "don't", "cannot", "can't"}
+_SENTIMENT_INTENSIFIERS = {"very": 1.35, "really": 1.25, "extremely": 1.6, "so": 1.15, "quite": 1.1, "slightly": 0.65}
+_FEEDBACK_ASPECTS = {
+    "Teaching clarity": {"clear", "clearly", "explain", "explained", "understand", "understood", "confusing", "unclear"},
+    "Communication": {"communicate", "communication", "friendly", "rude", "patient", "responsive", "reply", "replies"},
+    "Preparation & punctuality": {"prepared", "unprepared", "organized", "disorganized", "late", "punctual", "ontime", "on-time"},
+    "Practical learning": {"practice", "practical", "example", "examples", "project", "exercise", "hands-on", "useful"},
+    "Engagement & support": {"supportive", "helpful", "helped", "interactive", "engaging", "ignored", "encouraged", "patient"},
+}
+
+def _sentiment_score(text):
+    """Return a bounded lexicon score and matched word evidence."""
+    words = re.findall(r"[a-z']+", (text or "").lower())
+    total = 0.0
+    evidence = []
+    for index, word in enumerate(words):
+        value = _SENTIMENT_LEXICON.get(word)
+        if value is None:
+            continue
+        window = words[max(0, index - 3):index]
+        if any(w in _SENTIMENT_NEGATORS for w in window):
+            value *= -1
+        multiplier = 1.0
+        for prior in window[-2:]:
+            multiplier *= _SENTIMENT_INTENSIFIERS.get(prior, 1.0)
+        value *= multiplier
+        total += value
+        evidence.append(word)
+    # Normalise for comment length so a long review does not dominate by word count.
+    normalised = total / max(1.0, (len(evidence) ** 0.5))
+    return max(-1.0, min(1.0, normalised / 2.5)), evidence
+
+def _classify_feedback(comment, rating):
+    lexical, evidence = _sentiment_score(comment)
+    rating_signal = (int(rating) - 3) / 2.0
+    if str(comment or '').strip():
+        score = max(-1.0, min(1.0, lexical * 0.72 + rating_signal * 0.28))
+    else:
+        score = rating_signal
+    if score >= 0.18:
+        label = "Positive"
+    elif score <= -0.18:
+        label = "Negative"
+    else:
+        label = "Neutral"
+    confidence = round(min(99, 50 + abs(score) * 49))
+    return {"label": label, "score": round(score, 3), "confidence": confidence, "evidence": evidence}
+
+def _feedback_aspects(comment):
+    words = set(re.findall(r"[a-z-]+", (comment or "").lower()))
+    found = []
+    for aspect, terms in _FEEDBACK_ASPECTS.items():
+        hits = sorted(words.intersection(terms))
+        if hits:
+            found.append({"aspect": aspect, "mentions": hits[:4]})
+    return found
+
 def error(message, status=400):
     return jsonify({"error": message}), status
 
@@ -1017,6 +1093,73 @@ def user_feedback(user_id):
     rows=Feedback.query.filter_by(reviewee_id=user_id).order_by(Feedback.created_at.desc()).limit(100).all()
     return jsonify({"average": round(sum(x.rating for x in rows)/len(rows), 2) if rows else None,
                     "count": len(rows), "feedback": [{"rating":x.rating,"comment":x.comment,"reviewer_name":x.reviewer.name,"created_at":x.created_at.isoformat()} for x in rows]})
+
+
+@app.get("/api/feedback/analyzer")
+def feedback_analyzer():
+    """Analyse reviews received by the signed-in learner; comments remain private to that learner."""
+    user, problem = require_user()
+    if problem: return problem
+    rows = Feedback.query.filter_by(reviewee_id=user.id).order_by(Feedback.created_at.desc()).limit(100).all()
+    analysed = []
+    counts = {"Positive": 0, "Neutral": 0, "Negative": 0}
+    rating_total = 0
+    aspect_counts = {}
+    for row in rows:
+        sentiment = _classify_feedback(row.comment or "", row.rating)
+        counts[sentiment["label"]] += 1
+        rating_total += row.rating
+        aspects = _feedback_aspects(row.comment or "")
+        for item in aspects:
+            aspect_counts[item["aspect"]] = aspect_counts.get(item["aspect"], 0) + 1
+        analysed.append({
+            "id": row.id, "rating": row.rating, "comment": row.comment or "",
+            "sentiment": sentiment["label"], "sentiment_score": sentiment["score"],
+            "confidence": sentiment["confidence"], "evidence": sentiment["evidence"],
+            "aspects": aspects,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+        })
+    total = len(rows)
+    positive_rate = round(counts["Positive"] * 100 / total) if total else 0
+    negative_rate = round(counts["Negative"] * 100 / total) if total else 0
+    if total:
+        if positive_rate >= 60:
+            summary = "Your feedback is mostly positive. Keep repeating the teaching behaviours learners value."
+        elif negative_rate >= 35:
+            summary = "Several reviews indicate room to improve. Review the themes below and agree on specific changes with your next learning partner."
+        else:
+            summary = "Feedback is mixed or balanced. Use the recurring themes below to decide what to keep and what to improve."
+    else:
+        summary = "No reviews have been received yet. Complete a skill exchange and invite your partner to leave feedback to build your analysis."
+    return jsonify({
+        "total": total, "average_rating": round(rating_total / total, 2) if total else None,
+        "distribution": counts, "positive_rate": positive_rate, "negative_rate": negative_rate,
+        "summary": summary,
+        "top_aspects": sorted([{"aspect": k, "mentions": v} for k, v in aspect_counts.items()], key=lambda x: (-x["mentions"], x["aspect"])),
+        "reviews": analysed,
+        "method": "Lexicon-based NLP with negation and intensity handling, blended with the review's 1–5 star rating. Aspect tags are extracted from review text."
+    })
+
+@app.post("/api/feedback/analyze-text")
+def analyze_feedback_text():
+    """Analyse text entered by a learner without storing it in the database."""
+    user, problem = require_user()
+    if problem: return problem
+    data = request.get_json(silent=True) or {}
+    comment = data.get("comment", "")
+    try: rating = int(data.get("rating", 3))
+    except (TypeError, ValueError): return error("Rating must be a number from 1 to 5.")
+    if not isinstance(comment, str) or len(comment.strip()) < 3:
+        return error("Enter at least 3 characters of feedback to analyse.")
+    if len(comment) > 1000: return error("Feedback text must be 1000 characters or fewer.")
+    if rating < 1 or rating > 5: return error("Rating must be from 1 to 5.")
+    sentiment = _classify_feedback(comment.strip(), rating)
+    return jsonify({
+        "sentiment": sentiment["label"], "score": sentiment["score"],
+        "confidence": sentiment["confidence"], "evidence": sentiment["evidence"],
+        "aspects": _feedback_aspects(comment),
+        "note": "This is an explainable lexicon-based estimate combined with the selected star rating; it is not a trained neural model. Text entered here is analysed in memory and is not saved."
+    })
 
 with app.app_context():
     db.create_all()

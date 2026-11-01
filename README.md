@@ -31,6 +31,7 @@ Open **http://127.0.0.1:5000**. Do not open the HTML file directly or use Live S
 - **Video meetings:** opens a shared Jitsi Meet room for the exchange. Both partners should use the same room link. This requires an internet connection and uses Jitsi's external service; it is not a self-hosted video server.
 - **Collaborative project workspace:** one project per exchange, with project description, tasks, assignees, due dates and To do / In progress / Done status.
 - **Feedback:** participants can leave one 1–5-star review after an exchange is completed.
+- **Feedback Analyzer:** private dashboard for the signed-in learner to analyse reviews they received, showing average rating, positive/neutral/negative distribution, recurring feedback aspects and review-by-review insights. Includes a non-persistent text-analysis playground.
 - **SkillBuddy help assistant:** built-in help works without an API key; optional OpenAI-powered replies can be enabled using environment settings.
 
 ## OpenAI SkillBuddy (optional)
@@ -138,3 +139,12 @@ Open `http://127.0.0.1:5000`, create an account, then choose **Learning Path** f
 The Skill Analyzer compares a signed-in member's saved SkillSwap skills plus optional additional skills against a transparent competency map for common goals (for example, Web Developer, Data Analyst, AI Engineer, UI/UX Designer and Cybersecurity Analyst). It reports a coverage percentage, matched strengths, missing skills with priority, practical next actions, and community members who list relevant teaching skills.
 
 API: `POST /api/skill-analyzer` (authenticated JSON: `goal`, optional `level`, optional comma/newline-separated `current_skills`). The analysis is a guidance-oriented, explainable competency gap estimate, not a formal qualification or employer assessment. For custom goals, it uses a general competency framework rather than claiming a verified role-specific standard.
+
+
+## Feedback Analyzer details
+
+- Open **Feedback Analyzer** after signing in to analyse reviews received on completed exchanges.
+- The dashboard reads only the signed-in user's received reviews; it does not expose another learner's private feedback comments.
+- Sentiment is estimated using a transparent built-in word lexicon with negation and intensifier handling, blended with the 1–5 star rating. Theme tags identify mentions of teaching clarity, communication, preparation/punctuality, practical learning, and engagement/support.
+- The **Try the text analyser** form analyses pasted text without saving it. It is useful for a classroom demonstration when there are not yet enough submitted reviews.
+- This is an explainable NLP heuristic, not a trained neural network or a guarantee of human sentiment. Sarcasm, mixed-language comments, and context-dependent phrases may be misclassified.
