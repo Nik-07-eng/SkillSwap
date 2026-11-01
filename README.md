@@ -328,3 +328,20 @@ SkillBuddy includes a daily Treasure Hunt with five collectibles randomly select
 Treasure selections and claims are account-specific and India-local-day based. The backend stores each collectible in `TreasureCollectible`, issues session-bound random claim tokens, validates the token hash and prevents duplicate collection with a database unique constraint. The new table is created by the existing `db.create_all()` startup routine. No new packages are required. Use persistent PostgreSQL storage in production so daily hunt state and XP survive hosting restarts.
 
 Endpoints: `GET /api/treasure-hunt` initializes or returns the current daily hunt; `POST /api/treasure-hunt/collect` accepts `{"collectible_id":"...","token":"..."}` and awards the server-stored XP after validation.
+
+## Premium EdTech + AI Learning Cockpit
+
+The overview now combines two complementary design directions:
+
+- **Modern EdTech workspace:** clean light surfaces, readable hierarchy, responsive cards, calm spacing, accessible controls and clear next actions.
+- **AI-powered futuristic layer:** a luminous personal skill constellation and dark AI insight panel that make the intelligence features feel discoverable without making the interface difficult to use.
+
+The new overview cockpit includes:
+
+- An interactive SVG skill map built from the signed-in user's actual `teach` and `learn` profile skills.
+- Separate visual treatments for skills the learner can teach and skills they want to learn, connected to a central learner node.
+- Personalized recommendations from the existing `/api/smart-matches` endpoint, including ranked community partners when matches are available.
+- Learning Path recommendations based on the user's saved learning goals and a prompt to complete their profile when information is missing.
+- Responsive layouts and reduced-motion handling. The cockpit does not add a new backend dependency or change existing matching/reward data.
+
+The Smart Match engine remains the existing TF-IDF + cosine-similarity implementation (with its existing fallback when scikit-learn is unavailable); the new UI presents those existing results rather than fabricating match scores.

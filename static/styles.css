@@ -214,3 +214,58 @@ body.is-booting{overflow:hidden}
 @keyframes treasurePulse{0%,100%{box-shadow:0 7px 24px #d6a63d55,0 0 0 4px #f7e8bc55;transform:translateY(0)}50%{box-shadow:0 9px 30px #d6a63d88,0 0 0 9px #f7e8bc22;transform:translateY(-3px)}}
 @media(max-width:540px){.treasure-hunt{margin:8px;padding:11px}.treasure-clue-card{grid-template-columns:28px minmax(0,1fr) auto;gap:6px;padding:7px}.treasure-clue-icon{width:27px;height:27px;font-size:15px}.treasure-find-btn{padding:6px;font-size:7px}.treasure-hidden-marker{top:76px;right:10px;width:42px;height:42px}}
 @media(prefers-reduced-motion:reduce){.treasure-hidden-marker,.treasure-progress-track i{animation:none!important;transition:none!important}}
+
+/* =========================================================
+   SkillSwap premium EdTech + AI future cockpit refresh
+   A calm editorial workspace paired with a luminous AI canvas.
+   ========================================================= */
+:root{--ss-ink:#20253d;--ss-muted:#777f96;--ss-line:#e9ecf4;--ss-paper:#fff;--ss-soft:#f6f7fc;--ss-violet:#7165e8;--ss-teal:#48c9bd}
+body{background:#f5f6fb;color:var(--ss-ink)}
+.sidebar{background:rgba(255,255,255,.96);border-right:1px solid #e9ebf3;box-shadow:8px 0 30px rgba(33,39,76,.025)}
+.brand{letter-spacing:-.5px}.brand-mark{box-shadow:0 7px 20px #7769e82b}
+.nav-item{border-radius:11px;transition:background .2s,color .2s,transform .2s}.nav-item:hover{transform:translateX(2px)}
+.nav-item.active{box-shadow:inset 3px 0 0 #7568e9;background:linear-gradient(90deg,#f0eeff,#f8f7ff);color:#5549c0}
+.topbar{background:rgba(255,255,255,.88);backdrop-filter:blur(18px);border-bottom:1px solid #eaecf3}
+.page-content{max-width:1500px}.welcome-row{border-radius:24px;overflow:hidden}.stat-card,.bento-card,.step-card,.community-board{box-shadow:0 8px 28px rgba(38,43,82,.045);border-color:#eceef5}
+.stat-card:hover,.step-card:hover{box-shadow:0 15px 35px rgba(38,43,82,.08)}
+.ai-lab-showcase{border:1px solid rgba(179,174,255,.18);box-shadow:0 22px 50px rgba(30,30,75,.12)}
+.ai-lab-card{backdrop-filter:blur(10px)}
+/* Modern learning cockpit */
+.learning-cockpit{margin:34px 0 39px;padding:27px;border:1px solid #e7eaf3;border-radius:23px;background:linear-gradient(135deg,#fff 0%,#fbfcff 62%,#f5f5ff 100%);box-shadow:0 14px 38px rgba(42,48,90,.055);position:relative;overflow:hidden}
+.learning-cockpit:before{content:"";position:absolute;width:340px;height:340px;right:-150px;top:-190px;border-radius:50%;background:radial-gradient(circle,#a7a0ff22,transparent 68%);pointer-events:none}
+.cockpit-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:21px;position:relative;z-index:1}
+.cockpit-kicker{font-size:9px;font-weight:900;letter-spacing:1.7px;color:#7569db}
+.cockpit-heading h2{font:800 clamp(22px,3vw,29px) Manrope,sans-serif;letter-spacing:-1.1px;margin:8px 0 5px;color:#252944}
+.cockpit-heading h2 span{background:linear-gradient(90deg,#7568e8,#36bdb2);-webkit-background-clip:text;background-clip:text;color:transparent}
+.cockpit-heading p{font-size:11px;color:#7c8298;margin:0;line-height:1.7}
+.cockpit-status{white-space:nowrap;border:1px solid #e3e7f2;background:#fff;border-radius:30px;padding:8px 11px;font-size:8px;font-weight:900;letter-spacing:.8px;color:#6e7490}
+.cockpit-status i,.ai-signal i{display:inline-block;width:7px;height:7px;background:#48c9a2;border-radius:50%;box-shadow:0 0 0 4px #48c9a21c;margin-right:7px}
+.cockpit-grid{display:grid;grid-template-columns:minmax(0,1.42fr) minmax(270px,.78fr);gap:15px;position:relative;z-index:1}
+.skill-map-card{background:#fff;border:1px solid #e9ebf4;border-radius:18px;padding:18px 18px 13px;min-width:0;box-shadow:0 7px 22px #30365d08}
+.cockpit-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.micro-label{font-size:8px;font-weight:900;letter-spacing:1.35px;color:#8b82dc}
+.cockpit-card-head h3,.ai-recommend-card h3{font:800 16px Manrope,sans-serif;color:#292e49;margin:6px 0 4px;letter-spacing:-.35px}
+.cockpit-card-head p{font-size:10px;color:#858ba0;margin:0;line-height:1.5}
+.map-legend{display:flex;align-items:center;gap:5px;white-space:nowrap;font-size:8px;color:#777e94;margin-top:8px}
+.map-legend i{width:7px;height:7px;border-radius:50%;display:inline-block;margin-left:5px}.legend-teach{background:#8c7cf3}.legend-learn{background:#44c8b6}
+.skill-map-stage{margin-top:9px;min-height:245px;border-radius:13px;overflow:hidden;background:radial-gradient(ellipse at 50% 50%,#f0efff 0%,#f9faff 48%,#f4f8fb 100%);position:relative}
+.skill-map-loading,.skill-map-empty{min-height:245px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:22px;color:#858ba0;font-size:10px;line-height:1.6}
+.skill-map-empty>span{font-size:27px;color:#8b7cf0;margin-bottom:8px}.skill-map-empty b{font:800 13px Manrope;color:#353a59}.skill-map-empty p{max-width:300px;margin:5px 0 12px}.skill-map-empty button{border:0;border-radius:9px;background:#7165e8;color:white;padding:9px 13px;font-size:9px;font-weight:800;cursor:pointer}
+.skill-map-svg{display:block;width:100%;height:auto;min-height:245px;overflow:visible}
+.map-grid-lines path{stroke:#cbd2e6;stroke-width:.65;stroke-dasharray:2 7;opacity:.5}
+.map-link{fill:none;stroke-width:1.5;stroke-dasharray:5 5;opacity:.7;animation:mapLineIn .7s ease both;animation-delay:var(--delay)}.map-link.teach{stroke:#9a8cf1}.map-link.learn{stroke:#48c9b8}
+.map-you .you-aura{fill:#a79cff;opacity:.2;animation:youPulse 3s ease-in-out infinite}.map-you .you-core{fill:url(#mapCore);stroke:#fff;stroke-width:3;filter:drop-shadow(0 4px 9px #7165e866)}.map-you text{font:900 10px Manrope;fill:#fff;letter-spacing:1px}
+.map-node{cursor:default;animation:nodePop .45s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i,0)*.06s)}.node-halo{fill:#fff;stroke:#dfe2f2;stroke-width:1}.map-node.teach .node-core{fill:#8375ee}.map-node.learn .node-core{fill:#45c5b5}.node-core{stroke:#fff;stroke-width:2;filter:drop-shadow(0 3px 6px #424d7b24)}.node-symbol{font:800 13px Manrope;fill:#fff}.node-label{font:700 9px 'DM Sans',sans-serif;fill:#4b526d;paint-order:stroke;stroke:#f7f8ff;stroke-width:3px;stroke-linejoin:round}
+.map-counts{position:absolute;bottom:8px;left:12px;right:12px;display:flex;justify-content:center;gap:20px;pointer-events:none}.map-counts span{font-size:8px;color:#7c8298}.map-counts b{color:#393f60;font-size:10px;margin-right:3px}
+.skill-map-foot{display:flex;justify-content:space-between;gap:10px;padding-top:10px;color:#969bb0;font-size:8px}.skill-map-foot button{border:0;background:none;color:#6e61d5;font-size:9px;font-weight:800;cursor:pointer}
+.ai-recommend-card{border-radius:18px;padding:19px;background:linear-gradient(145deg,#171c39 0%,#222752 55%,#3b3679 100%);color:#fff;position:relative;overflow:hidden;box-shadow:0 12px 28px #28275b25;min-width:0}
+.ai-recommend-card:before,.ai-recommend-card:after{content:"";position:absolute;border:1px solid #b2aaff20;border-radius:50%;pointer-events:none}.ai-recommend-card:before{width:230px;height:230px;right:-130px;top:-130px}.ai-recommend-card:after{width:170px;height:170px;right:-100px;top:-100px}
+.ai-recommend-top{display:flex;justify-content:space-between;align-items:center}.ai-signal{font-size:8px;letter-spacing:1.2px;font-weight:900;color:#b8c8f4}.ai-spark{font-size:23px;color:#a8a0ff}.ai-recommend-card h3{color:#fff;font-size:18px;margin:13px 0 5px}.ai-recommend-intro{font-size:9px;line-height:1.6;color:#b9c1df;margin:0 0 13px;max-width:330px}
+.ai-recommend-list{display:grid;gap:8px;position:relative;z-index:1}.ai-recommend-placeholder{border:1px dashed #ffffff30;border-radius:12px;padding:15px;color:#c3c8df;font-size:9px;line-height:1.6}
+.ai-recommend-item{width:100%;display:flex;align-items:center;gap:9px;text-align:left;padding:10px;border:1px solid #ffffff18;border-radius:12px;background:#ffffff0c;color:#fff;cursor:pointer;transition:.2s}.ai-recommend-item:hover{transform:translateX(3px);background:#ffffff16;border-color:#a9a1ff66}
+.recommend-icon{width:31px;height:31px;flex:0 0 31px;border-radius:9px;background:#9c91ff22;color:#bcb4ff;display:grid;place-items:center;font-size:15px}.recommend-copy{display:grid;gap:3px;min-width:0}.recommend-copy small{font-size:7px;letter-spacing:1px;font-weight:900;color:#8edbd2}.recommend-copy b{font:800 10px Manrope;color:#fff}.recommend-copy em{font-style:normal;font-size:8px;color:#bdc4dc;line-height:1.4}.recommend-arrow{margin-left:auto;color:#9ce4da;font-size:15px}.ai-recommend-action{display:flex;justify-content:space-between;align-items:center;width:100%;margin-top:12px;padding:10px 12px;border:1px solid #a7a0ff55;border-radius:10px;background:linear-gradient(90deg,#776be8,#4c9eac);color:#fff;font-size:9px;font-weight:900;cursor:pointer;position:relative;z-index:1}
+.cockpit-principles{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}.cockpit-principles>div{display:grid;grid-template-columns:25px 1fr;column-gap:7px;align-items:center;padding:10px 12px;border:1px solid #eaecf4;border-radius:12px;background:#ffffffa8}.cockpit-principles span{grid-row:span 2;color:#a19ae7;font:800 10px Manrope}.cockpit-principles b{font:800 9px Manrope;color:#414762}.cockpit-principles small{font-size:8px;color:#8b91a4;line-height:1.4;margin-top:3px}
+@keyframes mapLineIn{from{stroke-dashoffset:35;opacity:0}to{stroke-dashoffset:0;opacity:.7}}@keyframes nodePop{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:scale(1)}}@keyframes youPulse{0%,100%{transform:scale(.9);opacity:.15}50%{transform:scale(1.15);opacity:.3}}
+@media(max-width:980px){.cockpit-grid{grid-template-columns:1fr}.ai-recommend-card{min-height:0}.skill-map-stage{min-height:220px}}
+@media(max-width:600px){.learning-cockpit{padding:17px 13px;margin:25px 0 30px;border-radius:17px}.cockpit-heading{display:block}.cockpit-status{display:inline-block;margin-top:12px}.skill-map-card{padding:13px 10px}.cockpit-card-head{display:block}.map-legend{margin-top:9px}.skill-map-stage{min-height:210px}.skill-map-svg{min-height:210px}.cockpit-principles{grid-template-columns:1fr}.cockpit-principles>div{padding:9px 11px}.ai-recommend-card{padding:16px}}
+@media(prefers-reduced-motion:reduce){.map-link,.map-node,.map-you .you-aura{animation:none!important}}
