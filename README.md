@@ -265,3 +265,19 @@ New endpoints:
 - `GET /api/arena/leaderboard` — current week's vote ranking.
 
 No additional Python package is required. Competition dates use Asia/Kolkata. For production persistence on Render, use PostgreSQL or another durable database rather than ephemeral local SQLite storage.
+
+## SkillBuddy roaming companion
+
+The floating SkillBuddy robot now behaves like a lightweight interactive mascot:
+
+- It gently moves between safe positions around the viewport after a period of inactivity, staying mostly near the page edges so it does not cover the main content.
+- It returns to its familiar dock when the learner interacts with the page.
+- Its eyes subtly follow pointer direction; it does not inspect text typed into forms.
+- It reacts with happy, curious, waving, sleepy and playful teary expressions, with short animations and matching status messages.
+- It can offer occasional page-aware learning suggestions for Discover, Matches, Learning Rooms, Quest, Community, AI Mentor and Arena.
+- The companion's chat panel follows the robot and is repositioned to remain inside the viewport.
+- A **Roaming: On/Off** control lets users pause movement. The preference is stored locally in that browser.
+- The feature respects `prefers-reduced-motion`, pauses when the tab is hidden, and avoids roaming while the assistant or a modal is open.
+- Behaviour is client-side only. It uses coarse interaction signals (clicks, scrolling, keyboard activity and pointer position) and does not record page history or read form contents.
+
+The robot is decorative and supportive; its emotional expressions are playful animations, not claims that the software has real feelings.

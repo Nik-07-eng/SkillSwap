@@ -141,3 +141,28 @@ body.is-booting{overflow:hidden}
 @media(max-width:900px){.arena-layout{grid-template-columns:1fr}.arena-side{grid-template-columns:1fr 1fr}.arena-xp-card{grid-column:1/-1}.arena-contest-content{grid-template-columns:minmax(0,1fr) 140px}}
 @media(max-width:600px){.arena-hero-mark{display:none}.arena-contest-top{padding:12px 14px}.arena-contest-content{grid-template-columns:1fr;padding:17px}.arena-contest-art{display:none}.arena-theme{display:block;margin:7px 0 0}.arena-contest-meta{gap:8px}.arena-panel{padding:14px}.arena-form-grid,.arena-side{grid-template-columns:1fr}.arena-xp-card{grid-column:auto}.arena-submit-footer{align-items:stretch;flex-direction:column}.arena-submit-footer .primary-button{width:100%;justify-content:center}.arena-entry-footer{align-items:flex-start;flex-direction:column}.arena-section-head{align-items:center}}
 @media(prefers-reduced-motion:reduce){.arena-trophy-orbit span,.arena-trophy-orbit i,.arena-trophy-orbit b,.arena-loader-dot{animation:none!important}.arena-entry-card{transition:none}}
+
+/* SkillBuddy's playful roaming personality */
+.assistant-widget.pet-roaming{right:auto!important;bottom:auto!important;transition:left 1.15s cubic-bezier(.2,.8,.2,1),top 1.15s cubic-bezier(.2,.8,.2,1)}
+.assistant-widget.pet-roaming .assistant-panel{position:fixed!important;right:auto!important;bottom:auto!important;z-index:130}
+.assistant-widget.pet-roaming .pet-speech{position:fixed;right:auto;bottom:auto;z-index:131;max-width:min(230px,calc(100vw - 28px))}
+.robot-pet{position:relative;transform-origin:50% 75%;will-change:transform}
+.pet-tears{position:absolute;left:0;right:0;top:0;height:100%;pointer-events:none;opacity:0}
+.pet-tears i{position:absolute;top:49%;width:5px;height:10px;border-radius:70% 30% 65% 35%;background:linear-gradient(#9df5ff,#48b9f4);box-shadow:0 1px 5px #58d9ff88}
+.pet-tears i:first-child{left:35%}.pet-tears i:last-child{right:35%;top:53%}
+.assistant-widget.pet-happy .robot-pet{animation:petHappy .72s ease-in-out 2}
+.assistant-widget.pet-curious .robot-pet{animation:petCurious 1.2s ease-in-out 2}
+.assistant-widget.pet-waving .robot-pet{animation:petWave .8s ease-in-out 2}
+.assistant-widget.pet-sleepy .robot-pet{animation:petSleepy 3.2s ease-in-out infinite;filter:saturate(.72) brightness(.92)}
+.assistant-widget.pet-sleepy .pet-eye{transform:scaleY(.38);transform-box:fill-box;transform-origin:center}
+.assistant-widget.pet-crying .robot-pet{animation:petCrying 1.4s ease-in-out 2}
+.assistant-widget.pet-crying .pet-tears{opacity:1}
+.assistant-widget.pet-crying .pet-tears i{animation:petTearDrop .8s ease-in infinite}
+.assistant-widget.pet-crying .pet-tears i:last-child{animation-delay:.35s}
+@keyframes petCurious{0%,100%{transform:rotate(0)}30%{transform:rotate(-12deg) translateY(-3px)}65%{transform:rotate(8deg)}}
+@keyframes petWave{0%,100%{transform:rotate(0) translateY(0)}25%{transform:rotate(-13deg) translateY(-5px)}50%{transform:rotate(10deg) translateY(-2px)}75%{transform:rotate(-8deg)}}
+@keyframes petSleepy{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(3px) rotate(2deg)}}
+@keyframes petCrying{0%,100%{transform:translateY(0)}25%{transform:translateY(-3px) rotate(-4deg)}50%{transform:translateY(1px) rotate(4deg)}75%{transform:translateY(-2px)}}
+@keyframes petTearDrop{0%{transform:translateY(0);opacity:0}25%{opacity:1}100%{transform:translateY(17px);opacity:0}}
+@media(max-width:600px){.assistant-widget.pet-roaming .robot-toggle{padding:6px 9px 6px 6px}.assistant-widget.pet-roaming .robot-toggle-label small{display:none}.assistant-widget.pet-roaming .assistant-panel{width:min(360px,calc(100vw - 24px))}}
+@media(prefers-reduced-motion:reduce){.assistant-widget.pet-roaming{transition:none!important}.assistant-widget.pet-happy .robot-pet,.assistant-widget.pet-curious .robot-pet,.assistant-widget.pet-waving .robot-pet,.assistant-widget.pet-sleepy .robot-pet,.assistant-widget.pet-crying .robot-pet,.assistant-widget.pet-crying .pet-tears i{animation:none!important}.assistant-widget.pet-crying .pet-tears{display:none}}
