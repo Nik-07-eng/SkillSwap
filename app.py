@@ -417,6 +417,124 @@ def matches():
             })
     return jsonify({"matches": found})
 
+# Skill Analyzer: role-oriented skill-gap analysis based on the learner's real profile.
+SKILL_PATHS = {
+    "python developer": ["Python", "Git and GitHub", "Object-Oriented Programming", "Data Structures", "SQL", "REST APIs", "Testing", "Deployment"],
+    "web developer": ["HTML", "CSS", "JavaScript", "Responsive Design", "Git and GitHub", "React", "REST APIs", "SQL", "Deployment"],
+    "frontend developer": ["HTML", "CSS", "JavaScript", "Responsive Design", "Accessibility", "Git and GitHub", "React", "State Management", "Frontend Testing"],
+    "backend developer": ["Programming Fundamentals", "Python or Java", "Data Structures", "SQL", "REST APIs", "Authentication", "Git and GitHub", "Testing", "Deployment"],
+    "data analyst": ["Excel", "SQL", "Python", "Pandas", "Data Cleaning", "Statistics", "Data Visualisation", "Power BI or Tableau", "Storytelling with Data"],
+    "data scientist": ["Python", "NumPy and Pandas", "SQL", "Statistics", "Data Visualisation", "Feature Engineering", "Machine Learning", "Model Evaluation", "Experimentation"],
+    "machine learning engineer": ["Python", "NumPy and Pandas", "Statistics", "Scikit-learn", "Feature Engineering", "Model Evaluation", "Deep Learning", "APIs", "Model Deployment"],
+    "ai engineer": ["Python", "Linear Algebra and Statistics", "Data Preparation", "Machine Learning", "Neural Networks", "Natural Language Processing", "Model Evaluation", "LLM Fundamentals", "AI Application Deployment"],
+    "ui ux designer": ["Design Principles", "User Research", "Wireframing", "Figma", "Prototyping", "Usability Testing", "Interaction Design", "Accessibility", "Design Systems"],
+    "digital marketer": ["Marketing Fundamentals", "SEO", "Content Marketing", "Social Media Marketing", "Email Marketing", "Google Analytics", "Paid Advertising", "Campaign Reporting"],
+    "java developer": ["Java", "Object-Oriented Programming", "Data Structures", "Collections and Streams", "SQL", "REST APIs", "Testing", "Build Tools", "Deployment"],
+    "cybersecurity analyst": ["Networking Fundamentals", "Linux", "Operating System Basics", "Python or Scripting", "Security Fundamentals", "Vulnerability Assessment", "Log Analysis", "Incident Response", "Security Tools"],
+}
+
+
+def _skill_key(value):
+    return re.sub(r"[^a-z0-9]+", " ", str(value).casefold()).strip()
+
+
+def _skill_matches(required, known):
+    """Return true for exact or meaningful alias/token matches, avoiding tiny-word matches."""
+    aliases = {
+        "git and github": {"git", "github", "version control"},
+        "python or java": {"python", "java", "programming"},
+        "power bi or tableau": {"power bi", "tableau", "data visualisation", "data visualization"},
+        "numpy and pandas": {"numpy", "pandas"},
+        "linear algebra and statistics": {"linear algebra", "statistics"},
+        "rest apis": {"api", "apis", "rest api", "rest apis"},
+    }
+    req = _skill_key(required)
+    known_keys = {_skill_key(x) for x in known}
+    if req in known_keys:
+        return True
+    if any(_skill_key(a) in known_keys for a in aliases.get(required.casefold(), set())):
+        return True
+    return any(len(token) >= 4 and (token in k.split() or k in req) for k in known_keys for token in req.split())
+
+
+@app.post("/api/skill-analyzer")
+def skill_analyzer():
+    user, problem = require_user()
+    if problem:
+        return problem
+    data = request.get_json(silent=True) or {}
+    goal = str(data.get("goal", "")).strip()[:100]
+    if len(goal) < 2:
+        return error("Enter a career or learning goal (at least 2 characters).")
+    level = str(data.get("level", "beginner")).lower()
+    if level not in ("beginner", "intermediate", "advanced"):
+        level = "beginner"
+    extra = data.get("current_skills", "")
+    if not isinstance(extra, str):
+        return error("Current skills must be text.")
+    extra_skills = [x.strip()[:80] for x in re.split(r"[,;\n]", extra) if x.strip()][:30]
+    profile_skills = [s.name for s in user.skills]
+    known = list(dict.fromkeys(profile_skills + extra_skills))
+    goal_key = _skill_key(goal)
+    catalog_key = next((k for k in SKILL_PATHS if k == goal_key), None)
+    if not catalog_key:
+        # Match common role names/abbreviations, then fall back to a useful general digital-career pathway.
+        aliases = {"ml engineer": "machine learning engineer", "machine learning": "machine learning engineer",
+                   "ai": "ai engineer", "artificial intelligence": "ai engineer", "web": "web developer",
+                   "frontend": "frontend developer", "backend": "backend developer", "ui ux": "ui ux designer",
+                   "ux designer": "ui ux designer", "data analysis": "data analyst", "data science": "data scientist",
+                   "cyber security": "cybersecurity analyst", "marketing": "digital marketer"}
+        catalog_key = aliases.get(goal_key)
+        if not catalog_key:
+            catalog_key = next((k for k in SKILL_PATHS if k in goal_key or goal_key in k), None)
+    if catalog_key:
+        required = SKILL_PATHS[catalog_key][:]
+        source = "curated role competency map"
+        display_goal = goal
+    else:
+        # For custom goals, use profile interests and broadly applicable competencies without pretending
+        # to know a specialist job's exact requirements.
+        required = ["Goal fundamentals", "Core tools and environment", "Practice exercises", "Problem solving", "Build a portfolio project", "Testing and feedback", "Communication and documentation"]
+        if any(t in goal_key for t in ("data", "analytics", "science")):
+            required[1:1] = ["Spreadsheets or SQL", "Statistics and data interpretation"]
+        elif any(t in goal_key for t in ("design", "ui", "ux")):
+            required[1:1] = ["Design principles", "User research and prototyping"]
+        elif any(t in goal_key for t in ("software", "developer", "programming", "app")):
+            required[1:1] = ["Programming fundamentals", "Git and version control", "APIs and databases"]
+        source = "general competency framework for a custom goal"
+        display_goal = goal
+    # Intermediate/advanced learners are assessed against the same transparent competencies;
+    # the output changes the action depth, not the evidence threshold.
+    acquired, missing = [], []
+    for item in required:
+        (acquired if _skill_matches(item, known) else missing).append(item)
+    coverage = round((len(acquired) / len(required)) * 100) if required else 0
+    priority_missing = missing[:]
+    priority_labels = ["High" if i < max(1, (len(priority_missing)+2)//3) else "Medium" for i in range(len(priority_missing))]
+    gaps = [{"skill": item, "priority": priority_labels[i],
+             "reason": f"This competency is commonly needed for {display_goal} and was not found in your current skill profile.",
+             "action": f"Study the foundations of {item}, complete one hands-on exercise, and add a small example to your portfolio."}
+            for i, item in enumerate(priority_missing)]
+    strengths = [{"skill": item, "evidence": "Found in your SkillSwap profile or additional skills list."} for item in acquired]
+    suggestions = []
+    if missing:
+        missing_keys = {_skill_key(x) for x in missing}
+        for mentor in User.query.filter(User.id != user.id).all():
+            shared = [sk.name for sk in mentor.skills if sk.kind == "teach" and any(_skill_matches(req, [sk.name]) for req in missing)]
+            if shared:
+                suggestions.append({"id": mentor.id, "name": mentor.name, "department": mentor.department or "SkillSwap member", "skills": shared[:4]})
+        suggestions = suggestions[:5]
+    return jsonify({"analysis": {
+        "goal": display_goal, "level": level.title(), "coverage": coverage,
+        "required_count": len(required), "matched_count": len(acquired),
+        "strengths": strengths, "gaps": gaps, "missing_count": len(missing),
+        "next_steps": [{"step": i+1, "title": f"Build {item}", "detail": f"Learn the key concepts of {item}, practise with a focused exercise, and record what you achieved."} for i, item in enumerate(missing[:5])],
+        "mentor_suggestions": suggestions, "method": source,
+        "profile_skills_used": profile_skills,
+        "note": "This is a guidance-oriented competency gap estimate based on the skills you entered and your SkillSwap profile. It is not a formal certification or an employer's assessment. Add more detail to improve the analysis."
+    }})
+
+
 @app.get("/api/smart-matches")
 def smart_matches():
     """Rank every other member using TF-IDF cosine similarity over teach/learn skills."""

@@ -131,3 +131,10 @@ python app.py
 ```
 
 Open `http://127.0.0.1:5000`, create an account, then choose **Learning Path** from the sidebar.
+
+
+## Skill Analyzer (new)
+
+The Skill Analyzer compares a signed-in member's saved SkillSwap skills plus optional additional skills against a transparent competency map for common goals (for example, Web Developer, Data Analyst, AI Engineer, UI/UX Designer and Cybersecurity Analyst). It reports a coverage percentage, matched strengths, missing skills with priority, practical next actions, and community members who list relevant teaching skills.
+
+API: `POST /api/skill-analyzer` (authenticated JSON: `goal`, optional `level`, optional comma/newline-separated `current_skills`). The analysis is a guidance-oriented, explainable competency gap estimate, not a formal qualification or employer assessment. For custom goals, it uses a general competency framework rather than claiming a verified role-specific standard.

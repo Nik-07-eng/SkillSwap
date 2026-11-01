@@ -17,6 +17,7 @@
       <button class="nav-item" data-view="discover"><span class="nav-icon">⌕</span> Discover people</button>
       <button class="nav-item" data-view="matches"><span class="nav-icon">✳</span> AI Smart Match <span class="nav-count" id="matchCount">0</span></button>
       <button class="nav-item" data-view="learning-path"><span class="nav-icon">⌁</span> Learning Path</button>
+      <button class="nav-item" data-view="skill-analyzer"><span class="nav-icon">⌖</span> Skill Analyzer</button>
       <button class="nav-item" data-view="requests"><span class="nav-icon">⇄</span> Skill exchanges</button>
       <button class="nav-item" data-view="collaborate"><span class="nav-icon">☷</span> Collaborate</button>
       <button class="nav-item" data-view="profile"><span class="nav-icon">◎</span> My profile</button>
@@ -53,6 +54,22 @@
             <p class="learning-form-note">You can generate a new roadmap any time by changing your goal or schedule.</p>
           </form>
           <div id="learningPathOutput" class="learning-output"><div class="learning-empty"><span>✧</span><h2>Your roadmap will appear here</h2><p>Choose a learning goal, experience level and weekly time budget, then generate your personalised plan.</p></div></div>
+        </div>
+      </section>
+      <section class="view" id="view-skill-analyzer">
+        <div class="page-heading"><div><div class="eyebrow">AI-ASSISTED SKILL GAP ANALYSIS</div><h1>Skill Analyzer<span class="gradient-text">.</span></h1><p class="lead">Compare your current skills with the competencies for a target role, identify gaps, and get practical next steps.</p></div><div class="heading-badge">✦ <span>Competency gap analysis</span></div></div>
+        <div class="ai-method-card"><div><strong>How the analysis works</strong><p>The analyzer compares your saved SkillSwap skills and any extra skills you enter against a transparent role competency map. It calculates coverage, highlights missing competencies and suggests relevant community mentors where available.</p></div><span class="ai-method-chip">Profile matching · Skill-gap analysis</span></div>
+        <div class="skill-analyzer-layout">
+          <form id="skillAnalyzerForm" class="learning-form">
+            <div class="learning-form-heading"><span class="learning-form-icon">⌖</span><div><h2>Analyse your skills</h2><p>Choose where you want to grow.</p></div></div>
+            <label>Target role or learning goal<input name="goal" maxlength="100" required placeholder="e.g. Data Analyst, AI Engineer, Web Developer"></label>
+            <label>Current experience<select name="level"><option value="beginner">Beginner</option><option value="intermediate">Intermediate</option><option value="advanced">Advanced</option></select></label>
+            <label>Additional skills you already know<textarea name="current_skills" rows="4" maxlength="1200" placeholder="e.g. Python, Excel, SQL (comma separated)"></textarea></label>
+            <div id="analyzerProfileContext" class="learning-profile-context">Log in to include your saved teach/learn skills automatically.</div>
+            <button class="primary-button" type="submit" id="analyzeSkillsBtn">Analyze my skill gaps ↗</button>
+            <p class="learning-form-note">Be honest about your current skills. You can add skills from your profile or enter extra skills above.</p>
+          </form>
+          <div id="skillAnalyzerOutput" class="learning-output"><div class="learning-empty"><span>⌖</span><h2>Your skill analysis will appear here</h2><p>Enter a target role and your current skills to see strengths, missing competencies and recommended next steps.</p></div></div>
         </div>
       </section>
       <section class="view" id="view-requests"><div class="page-heading"><div><div class="eyebrow">YOUR EXCHANGE JOURNEY</div><h1>Skill exchanges<span class="gradient-text">.</span></h1><p class="lead">Keep track of requests and celebrate each step of your learning journey.</p></div><div class="heading-badge">⇄ <span>Every exchange starts somewhere</span></div></div><div id="swapsList" class="swaps-list"><div class="empty-state">Log in to manage your exchanges.</div></div></section>
