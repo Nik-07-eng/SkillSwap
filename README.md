@@ -191,3 +191,17 @@ SkillSwap now includes public peer-learning rooms. Signed-in users can create a 
 Each room receives a unique Jitsi Meet URL. The **Join live video** button opens that meeting in a new tab; participants may need to allow microphone/camera access in their browser. Jitsi is an external meeting service, so its availability, privacy terms and meeting controls are governed by Jitsi. The room chat and membership are handled by the SkillSwap Flask backend.
 
 The feature uses the existing Flask-SQLAlchemy database and adds `learning_room`, `learning_room_member` and `learning_room_message` tables automatically through the existing `db.create_all()` startup call. No additional Python packages are required. Back up your database before deployment. If your deployment uses ephemeral local SQLite storage, room records and messages can be lost on a restart/redeploy; use persistent storage or PostgreSQL for production data retention.
+
+
+## SkillSwap Quest
+
+SkillSwap Quest adds a server-backed daily engagement and recognition system alongside Learning Rooms. Signed-in learners receive three daily missions: complete a daily check-in (+15 XP), join or create a learning room (+35 XP), and send a message in a room discussion (+25 XP). Room-based missions are verified against actual room activity before rewards are issued.
+
+- XP, check-in streaks, daily quest completions and activity evidence are stored in the Flask database.
+- Daily rewards reset by the server-controlled India Standard Time calendar day; changing the browser clock or request date does not create additional rewards.
+- Levels advance for every 100 XP. Achievements unlock for first quest completion, 3/7-day streaks, room participation, helpful room messages and 500 XP.
+- A small community leaderboard shows the highest XP totals.
+- New database tables: `quest_progress`, `quest_completion`, and `quest_activity`; `db.create_all()` creates them on startup for existing installations.
+- New frontend module: `static/quest.js`; new page: SkillSwap Quest.
+
+Quest rewards are intentionally limited to verified daily activities. The leaderboard is motivational and does not represent academic certification or formal skill assessment.

@@ -64,7 +64,7 @@
       if(room.joined){result={room};}
       else{result=await apiRoom(`/api/rooms/${id}/join`,{method:'POST'});}
       const updated=result.room;const index=rooms.findIndex(r=>r.id===id);if(index>=0)rooms[index]=updated;
-      renderRooms();showRoomWorkspace(updated);toast(updated.joined?'Room opened. Welcome back!':'You joined the learning room.');
+      renderRooms();showRoomWorkspace(updated);if(window.questRefresh)window.questRefresh();toast(updated.joined?'Room opened. Welcome back!':'You joined the learning room.');
     }catch(error){toast(error.message,true);await loadLearningRooms();}
   }
   async function fetchMessages(){
@@ -92,13 +92,13 @@
     event.preventDefault();if(!currentUser){openAuth('login');return;}
     const form=event.currentTarget,button=$('#createRoomSubmit');button.disabled=true;button.textContent='Creating room…';
     const values=Object.fromEntries(new FormData(form).entries());values.capacity=Number(values.capacity);
-    try{const data=await apiRoom('/api/rooms',{method:'POST',body:JSON.stringify(values)});closeModal('createRoomModal');form.reset();await loadLearningRooms();showRoomWorkspace(data.room);toast('Your learning room is ready. Invite others to join!');}
+    try{const data=await apiRoom('/api/rooms',{method:'POST',body:JSON.stringify(values)});closeModal('createRoomModal');form.reset();await loadLearningRooms();showRoomWorkspace(data.room);if(window.questRefresh)window.questRefresh();toast('Your learning room is ready. Invite others to join!');}
     catch(error){toast(error.message,true)}finally{button.disabled=false;button.textContent='Create learning room ↗';}
   });
   $('#roomMessageForm')?.addEventListener('submit',async event=>{
     event.preventDefault();if(!activeRoom)return;const input=$('#roomMessageInput'),body=input.value.trim();if(!body)return;
     const button=event.currentTarget.querySelector('button');button.disabled=true;
-    try{await apiRoom(`/api/rooms/${activeRoom.id}/messages`,{method:'POST',body:JSON.stringify({body})});input.value='';await fetchMessages();}
+    try{await apiRoom(`/api/rooms/${activeRoom.id}/messages`,{method:'POST',body:JSON.stringify({body})});input.value='';await fetchMessages();if(window.questRefresh)window.questRefresh();}
     catch(error){toast(error.message,true)}finally{button.disabled=false;input.focus();}
   });
   $('#leaveRoomBtn')?.addEventListener('click',async()=>{

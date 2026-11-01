@@ -8,6 +8,7 @@ from pathlib import Path
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from flask import Flask, request, jsonify, session, render_template
 from dotenv import load_dotenv
 from flask_sqlalchemy import SQLAlchemy
@@ -186,6 +187,35 @@ class LearningRoomMessage(db.Model):
     body = db.Column(db.String(2000), nullable=False)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
     sender = db.relationship("User")
+
+
+class QuestProgress(db.Model):
+    """Server-side XP and streak totals for a SkillSwap learner."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), unique=True, nullable=False, index=True)
+    xp = db.Column(db.Integer, nullable=False, default=0)
+    streak = db.Column(db.Integer, nullable=False, default=0)
+    last_checkin = db.Column(db.String(10), default="")
+    total_checkins = db.Column(db.Integer, nullable=False, default=0)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+
+class QuestCompletion(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    day = db.Column(db.String(10), nullable=False, index=True)
+    challenge_id = db.Column(db.String(40), nullable=False)
+    points = db.Column(db.Integer, nullable=False)
+    completed_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    __table_args__ = (db.UniqueConstraint("user_id", "day", "challenge_id", name="uq_quest_daily_completion"),)
+
+
+class QuestActivity(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    action = db.Column(db.String(40), nullable=False, index=True)
+    day = db.Column(db.String(10), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 # Transparent, dependency-free sentiment lexicon used by Feedback Analyzer.
 # This is an explainable NLP heuristic, not a trained deep-learning model.
@@ -1224,6 +1254,91 @@ def analyze_feedback_text():
     })
 
 
+# SkillSwap Quest: server-authoritative daily challenges, XP, streaks and achievements.
+def _quest_day():
+    # Use a server-controlled calendar day (India Standard Time) so clients cannot
+    # change the date header to repeatedly claim the same daily rewards.
+    return datetime.now(timezone.utc).astimezone(ZoneInfo("Asia/Kolkata")).date().isoformat()
+
+def _quest_log(user_id, action):
+    db.session.add(QuestActivity(user_id=user_id, action=action, day=_quest_day()))
+
+def _quest_profile(user_id):
+    progress = QuestProgress.query.filter_by(user_id=user_id).first()
+    if not progress:
+        progress = QuestProgress(user_id=user_id)
+        db.session.add(progress)
+        db.session.flush()
+    return progress
+
+def _quest_payload(user, day):
+    progress = _quest_profile(user.id)
+    completed = {c.challenge_id for c in QuestCompletion.query.filter_by(user_id=user.id, day=day).all()}
+    challenges = [
+        {"id":"daily_checkin", "title":"Show up and check in", "description":"Start today's learning journey with a quick check-in.", "points":15, "icon":"☀️", "action":"checkin", "hint":"One check-in each day keeps your streak alive."},
+        {"id":"join_room", "title":"Join a learning room", "description":"Join or create a room and meet learners working on a shared topic.", "points":35, "icon":"◉", "action":"room", "hint":"Open Learning Rooms, then join a room or create your own."},
+        {"id":"room_chat", "title":"Share one useful message", "description":"Post a question, explanation or helpful resource in a learning-room discussion.", "points":25, "icon":"💬", "action":"chat", "hint":"A meaningful room message counts once per day."}
+    ]
+    evidence = {
+        "join_room": QuestActivity.query.filter(QuestActivity.user_id==user.id, QuestActivity.day==day, QuestActivity.action.in_(["room_join", "room_create"])).first() is not None,
+        "room_chat": QuestActivity.query.filter_by(user_id=user.id, day=day, action="room_message").first() is not None
+    }
+    for item in challenges:
+        item["completed"] = item["id"] in completed
+        item["available"] = True if item["id"] == "daily_checkin" else evidence.get(item["id"], False)
+    total_done = QuestCompletion.query.filter_by(user_id=user.id).count()
+    room_joins = QuestActivity.query.filter_by(user_id=user.id, action="room_join").count()
+    room_creates = QuestActivity.query.filter_by(user_id=user.id, action="room_create").count()
+    room_messages = QuestActivity.query.filter_by(user_id=user.id, action="room_message").count()
+    achievements = [
+        {"id":"first_quest", "name":"Quest Starter", "icon":"✧", "description":"Complete your first daily quest", "unlocked":total_done>=1},
+        {"id":"three_day_streak", "name":"On a Roll", "icon":"🔥", "description":"Build a 3-day learning streak", "unlocked":progress.streak>=3},
+        {"id":"week_streak", "name":"Week of Growth", "icon":"🌟", "description":"Build a 7-day learning streak", "unlocked":progress.streak>=7},
+        {"id":"room_explorer", "name":"Room Explorer", "icon":"◉", "description":"Join or create 3 learning rooms", "unlocked":room_joins+room_creates>=3},
+        {"id":"helpful_voice", "name":"Helpful Voice", "icon":"💬", "description":"Send 10 learning-room messages", "unlocked":room_messages>=10},
+        {"id":"xp_collector", "name":"XP Collector", "icon":"🏆", "description":"Earn 500 XP", "unlocked":progress.xp>=500}
+    ]
+    level = progress.xp // 100 + 1
+    next_level = level * 100
+    leaderboard = db.session.query(QuestProgress, User).join(User, User.id == QuestProgress.user_id).order_by(QuestProgress.xp.desc(), QuestProgress.updated_at.asc()).limit(5).all()
+    return {"day":day, "xp":progress.xp, "level":level, "level_progress":progress.xp % 100, "next_level_xp":next_level, "streak":progress.streak, "last_checkin":progress.last_checkin, "total_checkins":progress.total_checkins, "completed_today":len(completed), "challenges":challenges, "achievements":achievements, "leaderboard":[{"name":u.name,"xp":p.xp,"level":p.xp//100+1,"is_you":u.id==user.id} for p,u in leaderboard]}
+
+@app.get("/api/quest")
+def get_quest():
+    user, problem = require_user()
+    if problem: return problem
+    day = _quest_day()
+    return jsonify({"quest":_quest_payload(user, day)})
+
+@app.post("/api/quest/complete")
+def complete_quest():
+    user, problem = require_user()
+    if problem: return problem
+    data = request.get_json(silent=True) or {}
+    challenge_id = str(data.get("challenge_id", ""))
+    day = _quest_day()
+    progress = _quest_profile(user.id)
+    existing = QuestCompletion.query.filter_by(user_id=user.id, day=day, challenge_id=challenge_id).first()
+    if existing:
+        return jsonify({"message":"This quest is already complete.", "quest":_quest_payload(user, day), "already_completed":True})
+    points = {"daily_checkin":15, "join_room":35, "room_chat":25}.get(challenge_id)
+    if not points: return error("Unknown daily quest.", 404)
+    if challenge_id == "join_room":
+        evidence = QuestActivity.query.filter(QuestActivity.user_id==user.id, QuestActivity.day==day, QuestActivity.action.in_(["room_join","room_create"])).first()
+        if not evidence: return error("Join an open learning room or create your own room before claiming this quest.", 409)
+    if challenge_id == "room_chat":
+        evidence = QuestActivity.query.filter_by(user_id=user.id, day=day, action="room_message").first()
+        if not evidence: return error("Send a message in a learning-room discussion before claiming this quest.", 409)
+    if challenge_id == "daily_checkin":
+        yesterday = (datetime.strptime(day, "%Y-%m-%d").date() - __import__("datetime").timedelta(days=1)).isoformat()
+        progress.streak = progress.streak + 1 if progress.last_checkin == yesterday else 1
+        progress.last_checkin = day
+        progress.total_checkins += 1
+    progress.xp += points
+    db.session.add(QuestCompletion(user_id=user.id, day=day, challenge_id=challenge_id, points=points))
+    db.session.commit()
+    return jsonify({"message":f"Quest complete · +{points} XP", "points":points, "quest":_quest_payload(user, day)})
+
 # Learning Rooms: public discovery, member-only chat and hosted video sessions.
 def _room_member(room_id, user_id):
     return LearningRoomMember.query.filter_by(room_id=room_id, user_id=user_id).first()
@@ -1269,6 +1384,7 @@ def create_learning_room():
     db.session.add(room)
     db.session.flush()
     db.session.add(LearningRoomMember(room_id=room.id, user_id=user.id))
+    _quest_log(user.id, "room_create")
     db.session.commit()
     return jsonify({"message": "Learning room created.", "room": room.public(user.id)}), 201
 
@@ -1285,6 +1401,7 @@ def join_learning_room(room_id):
     if len(room.members) >= room.capacity:
         return error("This room is full. Try another learning room.", 409)
     db.session.add(LearningRoomMember(room_id=room.id, user_id=user.id))
+    _quest_log(user.id, "room_join")
     db.session.commit()
     return jsonify({"message": "You joined the learning room.", "room": room.public(user.id)})
 
@@ -1355,6 +1472,7 @@ def post_learning_room_message(room_id):
         return error("Message must contain 1–2000 characters.")
     msg = LearningRoomMessage(room_id=room.id, sender_id=user.id, body=body)
     db.session.add(msg)
+    _quest_log(user.id, "room_message")
     db.session.commit()
     return jsonify({"message": {"id": msg.id, "sender_id": user.id,
         "sender_name": user.name, "body": msg.body,
