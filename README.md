@@ -281,3 +281,10 @@ The floating SkillBuddy robot now behaves like a lightweight interactive mascot:
 - Behaviour is client-side only. It uses coarse interaction signals (clicks, scrolling, keyboard activity and pointer position) and does not record page history or read form contents.
 
 The robot is decorative and supportive; its emotional expressions are playful animations, not claims that the software has real feelings.
+
+
+## SkillBuddy Virtual Pet System
+
+The SkillBuddy assistant now includes an account-backed virtual pet care panel with Happiness, Energy and Friendship meters. Learners can Play (costs 15 energy), Cuddle (small energy cost), Rest (restores energy), Talk (builds friendship) and give one Daily Treat per UTC day. Stats are clamped to 0–100 and stored per logged-in user in the `skill_buddy_pet` table. Energy regenerates by one point per 20 minutes while the user is away. The system has a short action cooldown and prevents duplicate daily treats.
+
+Pet care is optional and non-punitive: happiness and friendship do not decay, missed days do not reset anything, and users are never blocked from learning features. Guest users can see the care panel but must log in to save pet progress. New database table is created by the existing `db.create_all()` startup step. API endpoints: `GET /api/pet/state` and `POST /api/pet/action` with JSON `{"action":"play|cuddle|rest|talk|treat"}`.

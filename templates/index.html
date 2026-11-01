@@ -204,6 +204,24 @@
       <button id="assistantClose" class="assistant-close" aria-label="Close assistant">×</button>
     </header>
     <div class="pet-tools"><button type="button" id="petRename">✎ Name pet</button><button type="button" id="petCheer">♡ Cheer me up</button><button type="button" id="petTip">✦ Daily tip</button><button type="button" id="petRoamToggle" aria-pressed="true">✧ Roaming: On</button></div>
+    <section class="pet-care" id="petCarePanel" aria-label="Virtual pet care">
+      <div class="pet-care-heading"><div><span class="pet-care-kicker">YOUR LITTLE COMPANION</span><h3>Pet care <span>💜</span></h3><p>Care, play and grow your friendship.</p></div><button type="button" id="petCareRefresh" aria-label="Refresh pet stats">↻</button></div>
+      <div class="pet-stat-list">
+        <div class="pet-stat"><div><span>😊 Happiness</span><b id="petHappinessValue">—</b></div><div class="pet-meter"><i id="petHappinessBar"></i></div></div>
+        <div class="pet-stat"><div><span>⚡ Energy</span><b id="petEnergyValue">—</b></div><div class="pet-meter energy"><i id="petEnergyBar"></i></div></div>
+        <div class="pet-stat"><div><span>💜 Friendship</span><b id="petFriendshipValue">—</b></div><div class="pet-meter friendship"><i id="petFriendshipBar"></i></div></div>
+      </div>
+      <div class="pet-bond-row"><span>Bond level</span><strong id="petBondLevel">New Friend</strong><span id="petMoodLabel">Getting to know you</span></div>
+      <div class="pet-care-actions">
+        <button type="button" data-pet-action="play"><span>🎮</span><b>Play</b><small>Fun + bond</small></button>
+        <button type="button" data-pet-action="cuddle"><span>🤗</span><b>Cuddle</b><small>Boost happiness</small></button>
+        <button type="button" data-pet-action="rest"><span>😴</span><b>Rest</b><small>Restore energy</small></button>
+        <button type="button" data-pet-action="talk"><span>💬</span><b>Talk</b><small>Grow friendship</small></button>
+        <button type="button" data-pet-action="treat" id="petTreatButton"><span>🍪</span><b>Daily treat</b><small id="petTreatStatus">Once a day</small></button>
+      </div>
+      <p class="pet-care-note" id="petCareMessage" aria-live="polite">Your buddy's energy gently recharges while you're away. No streaks or punishments here.</p>
+      <div class="pet-care-login" id="petCareLogin" hidden>Log in to save your pet's happiness, energy and friendship to your account.</div>
+    </section>
     <div class="assistant-intro"><strong id="petGreeting">Hey there, learner! 👋</strong><p>I'm your little SkillSwap robot. Ask me anything, tell me how learning is going, or let me guide you around.</p></div>
     <div class="assistant-quick" id="assistantQuick"><button type="button" data-question="Help me find a learning partner">Find a partner</button><button type="button" data-question="What should I learn next?">What to learn?</button><button type="button" data-question="How do I use SkillSwap?">Guide me</button></div>
     <div class="assistant-messages" id="assistantMessages" aria-live="polite"><div class="chat-message bot">Beep boop! 🤖 I'm here whenever you need a hand. What's on your mind?</div></div>
@@ -225,4 +243,5 @@
 <script src="{{ url_for('static', filename='mentor.js') }}"></script>
 <script src="{{ url_for('static', filename='arena.js') }}"></script>
 <script src="{{ url_for('static', filename='robot_roaming.js') }}"></script>
+<script src="{{ url_for('static', filename='pet_care.js') }}"></script>
 </body></html>

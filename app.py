@@ -321,6 +321,22 @@ class ArenaVote(db.Model):
     __table_args__ = (db.UniqueConstraint("submission_id", "voter_id", name="uq_arena_vote_per_user"),)
 
 
+
+
+class SkillBuddyPet(db.Model):
+    """Per-account virtual pet care state. Stats are playful and never affect account access."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, unique=True, index=True)
+    happiness = db.Column(db.Integer, nullable=False, default=72)
+    energy = db.Column(db.Integer, nullable=False, default=82)
+    friendship = db.Column(db.Integer, nullable=False, default=10)
+    total_care_actions = db.Column(db.Integer, nullable=False, default=0)
+    last_energy_at = db.Column(db.Float, nullable=False, default=0)
+    last_action_at = db.Column(db.Float, nullable=False, default=0)
+    last_treat_date = db.Column(db.String(10), default="")
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 # Transparent, dependency-free sentiment lexicon used by Feedback Analyzer.
 # This is an explainable NLP heuristic, not a trained deep-learning model.
 _SENTIMENT_LEXICON = {
@@ -2018,6 +2034,80 @@ def arena_leaderboard():
     contest = _arena_current_competition()
     rows = sorted(contest.submissions, key=lambda x: (len(x.votes), x.created_at or datetime.min), reverse=True)
     return jsonify({"leaderboard": [{"rank": i + 1, "submission_id": s.id, "title": s.title, "user_name": s.user.name if s.user else "Learner", "votes": len(s.votes)} for i, s in enumerate(rows[:20])]})
+
+
+
+def _pet_state_public(pet):
+    now = datetime.now(timezone.utc).timestamp()
+    # Energy gently recharges while the learner is away (1 point per 20 minutes).
+    last = pet.last_energy_at or now
+    gained = max(0, int((now - last) // 1200))
+    if gained:
+        pet.energy = min(100, pet.energy + gained)
+        pet.last_energy_at = last + gained * 1200
+        db.session.commit()
+    mood = "joyful" if pet.happiness >= 75 else "content" if pet.happiness >= 45 else "needs-a-cuddle"
+    if pet.energy <= 20:
+        mood = "sleepy"
+    bond = "New Friend" if pet.friendship < 25 else "Buddy" if pet.friendship < 50 else "Best Friend" if pet.friendship < 75 else "Super Partner" if pet.friendship < 100 else "Legendary Companion"
+    return {"happiness": pet.happiness, "energy": pet.energy, "friendship": pet.friendship, "bond": bond, "mood": mood, "total_care_actions": pet.total_care_actions, "treat_available": pet.last_treat_date != datetime.now(timezone.utc).date().isoformat()}
+
+
+def _get_or_create_pet(user):
+    pet = SkillBuddyPet.query.filter_by(user_id=user.id).first()
+    if not pet:
+        pet = SkillBuddyPet(user_id=user.id, happiness=72, energy=82, friendship=10, last_energy_at=datetime.now(timezone.utc).timestamp())
+        db.session.add(pet)
+        db.session.commit()
+    return pet
+
+
+@app.get("/api/pet/state")
+def pet_state():
+    user, auth_error = require_user()
+    if auth_error: return auth_error
+    pet = _get_or_create_pet(user)
+    return jsonify({"pet": _pet_state_public(pet), "pet_name": user.name and "SkillBuddy" or "SkillBuddy"})
+
+
+@app.post("/api/pet/action")
+def pet_action():
+    user, auth_error = require_user()
+    if auth_error: return auth_error
+    data = request.get_json(silent=True) or {}
+    action = str(data.get("action", "")).strip().lower()
+    actions = {
+        "play": {"energy": -15, "happiness": 14, "friendship": 5, "message": "That was fun! My circuits are smiling. 🎮"},
+        "cuddle": {"energy": -2, "happiness": 9, "friendship": 5, "message": "A warm virtual hug! Thanks for being my friend. 💜"},
+        "rest": {"energy": 28, "happiness": 2, "friendship": 0, "message": "Power nap complete. I feel recharged! 🔋"},
+        "talk": {"energy": -3, "happiness": 4, "friendship": 7, "message": "I love our little conversations. Beep boop! ✨"},
+        "treat": {"energy": 8, "happiness": 12, "friendship": 3, "message": "Yummy! A little virtual treat. Thank you! 🍪"},
+    }
+    if action not in actions: return error("Choose a valid pet-care action.")
+    pet = _get_or_create_pet(user)
+    now = datetime.now(timezone.utc).timestamp()
+    today = datetime.now(timezone.utc).date().isoformat()
+    # Apply any energy recharge since the last recorded activity before checking costs.
+    gained = max(0, int((now - (pet.last_energy_at or now)) // 1200))
+    if gained:
+        pet.energy = min(100, pet.energy + gained)
+    if action == "treat" and pet.last_treat_date == today:
+        return error("Your daily treat has already been given. Come back tomorrow for another!", 409)
+    if now - (pet.last_action_at or 0) < 2.5:
+        return error("Your buddy is still enjoying the last action. Try again in a moment.", 429)
+    spec = actions[action]
+    if pet.energy + spec["energy"] < 0:
+        return error("SkillBuddy is low on energy. Let it rest first. 🔋", 409)
+    pet.energy = max(0, min(100, pet.energy + spec["energy"]))
+    pet.happiness = max(0, min(100, pet.happiness + spec["happiness"]))
+    pet.friendship = max(0, min(100, pet.friendship + spec["friendship"]))
+    pet.total_care_actions = (pet.total_care_actions or 0) + 1
+    pet.last_action_at = now
+    pet.last_energy_at = now
+    if action == "treat": pet.last_treat_date = today
+    db.session.commit()
+    return jsonify({"message": spec["message"], "pet": _pet_state_public(pet), "action": action})
+
 
 with app.app_context():
     db.create_all()
