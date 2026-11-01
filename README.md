@@ -1,4 +1,4 @@
-# SkillSwap — Full-stack knowledge-sharing platform
+[# SkillSwap — Full-stack knowledge-sharing platform
 
 A responsive SkillSwap web app using Flask + SQLite. Users create profiles, list skills they can teach and want to learn, discover partners, exchange requests, chat privately after an exchange is accepted, share learning materials, hold video meetings, work on collaborative projects, assign tasks, and leave feedback after completing an exchange.
 
@@ -152,3 +152,4 @@ API: `POST /api/skill-analyzer` (authenticated JSON: `goal`, optional `level`, o
 
 ## Futuristic classic responsive UI update
 The navigation now groups the four intelligence tools under **AI LAB – SkillSwap Intelligence**. The overview includes a launch panel for Smart Match, Learning Path, Skill Analyzer and Feedback Analyzer. The interface uses a midnight sidebar, warm light workspace, restrained aurora accents, responsive AI cards, and a slide-in mobile navigation drawer. On phones, open navigation with the menu button in the top bar; choosing any section closes the drawer.
+](https://github.com/Nik-07-eng/SkillSwap)
