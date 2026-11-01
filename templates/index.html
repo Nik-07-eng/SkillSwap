@@ -7,7 +7,28 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
-<body>
+<body class="is-booting">
+<!-- Premium first-load / account-action experience -->
+<div id="siteLoader" class="site-loader" role="status" aria-live="polite" aria-label="Loading SkillSwap">
+  <div class="loader-backdrop-glow"></div>
+  <div class="loader-card">
+    <div class="loader-brand"><span class="loader-brand-mark">✳</span><span>skill<span>swap</span></span></div>
+    <div class="loader-robot-wrap" aria-hidden="true">
+      <div class="loader-orbit orbit-a"></div><div class="loader-orbit orbit-b"></div>
+      <svg class="loader-robot" viewBox="0 0 120 120" role="img" aria-label="SkillSwap robot mascot">
+        <defs><linearGradient id="loaderShell" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#b8aaff"/><stop offset=".55" stop-color="#7868ed"/><stop offset="1" stop-color="#4844a9"/></linearGradient><linearGradient id="loaderGlass" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#293a63"/><stop offset="1" stop-color="#11182f"/></linearGradient></defs>
+        <ellipse cx="60" cy="108" rx="30" ry="5" fill="#6b5de0" opacity=".2"/><path d="M60 7v12" stroke="#53dfe6" stroke-width="4" stroke-linecap="round"/><circle cx="60" cy="7" r="5" fill="#75f1ef"/>
+        <path d="M28 43q0-22 22-22h20q22 0 22 22v34q0 20-20 20H48q-20 0-20-20z" fill="url(#loaderShell)" stroke="#d0c8ff" stroke-width="2"/><path d="M28 49H18v21h10M92 49h10v21H92" fill="#6259cf" stroke="#bdb3ff" stroke-width="2"/><rect x="36" y="40" width="48" height="31" rx="12" fill="url(#loaderGlass)" stroke="#c4bbff" stroke-width="1.5"/><ellipse class="loader-eye" cx="49" cy="54" rx="4.8" ry="6.3" fill="#76f4f0"/><ellipse class="loader-eye" cx="71" cy="54" rx="4.8" ry="6.3" fill="#76f4f0"/><path d="M50 82q10 8 20 0" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/><circle cx="36" cy="79" r="4" fill="#ffb8d2"/><circle cx="84" cy="79" r="4" fill="#ffb8d2"/>
+      </svg>
+      <span class="loader-spark spark-one">✦</span><span class="loader-spark spark-two">✧</span>
+    </div>
+    <p class="loader-kicker">YOUR SKILLS. YOUR COMMUNITY. YOUR NEXT STEP.</p>
+    <h1 id="loaderTitle">Making room to grow<span>.</span></h1>
+    <p id="loaderMessage" class="loader-message">SkillBuddy is getting your learning space ready…</p>
+    <div class="loader-progress"><span></span></div>
+    <div class="loader-foot"><span class="loader-pulse"></span><span id="loaderFootText">Preparing your workspace</span><b>SKILLSWAP</b></div>
+  </div>
+</div>
 <div class="app-shell">
   <aside class="sidebar">
     <a class="brand" href="#home"><span class="brand-mark">✳</span><span>skill<span class="brand-accent">swap</span><small>LEARN • SHARE • GROW</small></span></a>

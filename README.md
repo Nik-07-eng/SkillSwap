@@ -1,4 +1,4 @@
-[# SkillSwap — Full-stack knowledge-sharing platform
+# SkillSwap — Full-stack knowledge-sharing platform
 
 A responsive SkillSwap web app using Flask + SQLite. Users create profiles, list skills they can teach and want to learn, discover partners, exchange requests, chat privately after an exchange is accepted, share learning materials, hold video meetings, work on collaborative projects, assign tasks, and leave feedback after completing an exchange.
 
@@ -157,4 +157,17 @@ API: `POST /api/skill-analyzer` (authenticated JSON: `goal`, optional `level`, o
 
 ## Futuristic classic responsive UI update
 The navigation now groups the four intelligence tools under **AI LAB – SkillSwap Intelligence**. The overview includes a launch panel for Smart Match, Learning Path, Skill Analyzer and Feedback Analyzer. The interface uses a midnight sidebar, warm light workspace, restrained aurora accents, responsive AI cards, and a slide-in mobile navigation drawer. On phones, open navigation with the menu button in the top bar; choosing any section closes the drawer.
-](https://github.com/Nik-07-eng/SkillSwap)
+
+
+## Premium loading experience
+
+SkillSwap includes a branded, responsive loading screen designed around the purple/cyan robot companion. It appears during the initial application bootstrap and while a user registers or signs in. The screen uses a glass-style card, softly glowing background, floating robot, orbit rings, blinking eyes, sparkle accents, and an animated progress indicator. The initial loader stays visible until the session/profile bootstrap finishes, with a short minimum display time to avoid a distracting flash on fast connections. It does not use a fake fixed long delay. The account-action loader is dismissed in the form's `finally` path, including when authentication fails.
+
+Additional motion polish includes a subtle page entrance transition, button spinner while submitting login/registration, and responsive sizing. `prefers-reduced-motion` is respected so users who request reduced motion do not receive continuous decorative animations. The loader is implemented in `templates/index.html`, `static/styles.css`, and `static/app.js`; no additional package or database migration is required.
+
+### Suggested animation usage
+
+- Keep the full-screen branded loader for first visit / refresh and authentication only.
+- Use small inline spinners or skeletons for individual data panels (matches, profiles, feedback) rather than covering the whole screen for every API request.
+- Use short page entrance transitions (roughly 300–400 ms) and hover feedback; avoid constant bouncing, flashing, or long transitions that slow down navigation.
+- Respect reduced-motion preferences and keep the content usable if JavaScript animations are disabled.
