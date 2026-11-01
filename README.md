@@ -313,3 +313,10 @@ Mini-game routes: `GET /api/minigames`, `POST /api/minigames/start`, and `POST /
 SkillBuddy can now discover occasional surprise events while a signed-in learner is using the site. Events include Starfall Surprise, SkillBuddy Party, Lucky Spark and Golden XP Drop, each with a small animated celebration and a server-authorised XP reward. A learner can receive at most one event opportunity per India-local day; closing an event does not create another opportunity, and the daily claim is protected by a unique database constraint and a one-time session token. The frontend checks periodically (and when the page becomes visible) rather than interrupting every page action. Rewards are added to the existing Quest XP total and trigger a Quest refresh.
 
 No additional Python packages are required. The `SecretEventClaim` table is created by the app's existing `db.create_all()` startup routine. For production, use persistent PostgreSQL storage so XP and event-claim history survive service restarts and redeployments.
+
+
+## SkillBuddy Voice & Personality
+
+SkillBuddy now has an optional browser-native voice and personality layer. Learners can choose Cheerful, Calm, Playful, or Coach mode; enable spoken assistant replies; preview the selected voice; stop speech; and use microphone dictation to fill the chat input. Voice preferences are stored locally in the current browser. Speech synthesis is opt-in and does not send chat text to a third-party voice service. Microphone input is started only after the user presses a microphone button; browser permission is required. Availability depends on the browser and device (Chrome/Edge generally provide the broadest support).
+
+The robot reacts visually to positive, curious, and difficult/help-seeking messages. Reduced-motion preferences and browser support limitations are respected.

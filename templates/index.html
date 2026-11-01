@@ -204,6 +204,12 @@
       <button id="assistantClose" class="assistant-close" aria-label="Close assistant">×</button>
     </header>
     <div class="pet-tools"><button type="button" id="petRename">✎ Name pet</button><button type="button" id="petCheer">♡ Cheer me up</button><button type="button" id="petTip">✦ Daily tip</button><button type="button" id="petRoamToggle" aria-pressed="true">✧ Roaming: On</button></div>
+    <section class="pet-personality" id="petPersonalityPanel" aria-label="Voice and personality settings">
+      <div class="pet-personality-heading"><div><span class="pet-care-kicker">MEET THE REAL SKILLBUDDY</span><h3>Voice &amp; Personality <span>🎙️</span></h3><p>Choose how your robot speaks, reacts and cheers you on.</p></div><span class="personality-live-dot">● PERSONALITY</span></div>
+      <div class="personality-controls"><label class="personality-select-label">Personality style<select id="petPersonality"><option value="cheerful">🌈 Cheerful — bright and encouraging</option><option value="calm">🌿 Calm — gentle and reassuring</option><option value="playful">🎈 Playful — witty and curious</option><option value="coach">🎯 Coach — focused and motivating</option></select></label><label class="voice-toggle-label"><input type="checkbox" id="petVoiceEnabled"><span><b>Speak replies aloud</b><small>Uses your browser's built-in speech voice.</small></span></label></div>
+      <div class="personality-actions"><button type="button" id="petVoiceTest">▶ Test voice</button><button type="button" id="petVoiceStop">■ Stop speaking</button><button type="button" id="petListenButton" aria-pressed="false">🎤 Talk to me</button></div>
+      <p class="personality-status" id="petVoiceStatus" aria-live="polite">Voice is off. Turn it on whenever you want to hear SkillBuddy.</p>
+    </section>
     <section class="pet-care" id="petCarePanel" aria-label="Virtual pet care">
       <div class="pet-care-heading"><div><span class="pet-care-kicker">YOUR LITTLE COMPANION</span><h3>Pet care <span>💜</span></h3><p>Care, play and grow your friendship.</p></div><button type="button" id="petCareRefresh" aria-label="Refresh pet stats">↻</button></div>
       <div class="pet-stat-list">
@@ -249,7 +255,7 @@
     <div class="assistant-intro"><strong id="petGreeting">Hey there, learner! 👋</strong><p>I'm your little SkillSwap robot. Ask me anything, tell me how learning is going, or let me guide you around.</p></div>
     <div class="assistant-quick" id="assistantQuick"><button type="button" data-question="Help me find a learning partner">Find a partner</button><button type="button" data-question="What should I learn next?">What to learn?</button><button type="button" data-question="How do I use SkillSwap?">Guide me</button></div>
     <div class="assistant-messages" id="assistantMessages" aria-live="polite"><div class="chat-message bot">Beep boop! 🤖 I'm here whenever you need a hand. What's on your mind?</div></div>
-    <form id="assistantForm" class="assistant-form"><input id="assistantInput" autocomplete="off" maxlength="500" placeholder="Talk to your buddy…" aria-label="Message SkillBuddy" required><button type="submit" aria-label="Send message">➤</button></form>
+    <form id="assistantForm" class="assistant-form"><input id="assistantInput" autocomplete="off" maxlength="500" placeholder="Talk to your buddy…" aria-label="Message SkillBuddy" required><button type="button" id="assistantMicInline" class="assistant-mic-inline" aria-label="Use voice input">🎤</button><button type="submit" aria-label="Send message">➤</button></form>
     <div class="assistant-footnote">Friendly support, not a human · Don't share passwords or private information · <span id="assistantFootMode">Checking assistant mode…</span></div>
   </section>
   <div class="secret-event-backdrop" id="secretEventBackdrop" hidden aria-hidden="true">
@@ -284,4 +290,5 @@
 <script src="{{ url_for('static', filename='pet_room.js') }}"></script>
 <script src="{{ url_for('static', filename='mini_games.js') }}"></script>
 <script src="{{ url_for('static', filename='secret_events.js') }}"></script>
+<script src="{{ url_for('static', filename='pet_personality.js') }}"></script>
 </body></html>
