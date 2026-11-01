@@ -320,3 +320,11 @@ No additional Python packages are required. The `SecretEventClaim` table is crea
 SkillBuddy now has an optional browser-native voice and personality layer. Learners can choose Cheerful, Calm, Playful, or Coach mode; enable spoken assistant replies; preview the selected voice; stop speech; and use microphone dictation to fill the chat input. Voice preferences are stored locally in the current browser. Speech synthesis is opt-in and does not send chat text to a third-party voice service. Microphone input is started only after the user presses a microphone button; browser permission is required. Availability depends on the browser and device (Chrome/Edge generally provide the broadest support).
 
 The robot reacts visually to positive, curious, and difficult/help-seeking messages. Reduced-motion preferences and browser support limitations are respected.
+
+## SkillSwap Treasure Hunt
+
+SkillBuddy includes a daily Treasure Hunt with five collectibles randomly selected from seven real SkillSwap sections: Overview, Discover, Learning Rooms, Quest, Arena, Community and AI Mentor. Each collectible has a clue in the companion panel and appears as a glowing marker only when its section is opened. Learners navigate to the hinted section and click the marker to collect it. Each find awards 10–15 XP into the existing `QuestProgress` balance.
+
+Treasure selections and claims are account-specific and India-local-day based. The backend stores each collectible in `TreasureCollectible`, issues session-bound random claim tokens, validates the token hash and prevents duplicate collection with a database unique constraint. The new table is created by the existing `db.create_all()` startup routine. No new packages are required. Use persistent PostgreSQL storage in production so daily hunt state and XP survive hosting restarts.
+
+Endpoints: `GET /api/treasure-hunt` initializes or returns the current daily hunt; `POST /api/treasure-hunt/collect` accepts `{"collectible_id":"...","token":"..."}` and awards the server-stored XP after validation.

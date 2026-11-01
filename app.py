@@ -281,6 +281,21 @@ class SecretEventClaim(db.Model):
     __table_args__ = (db.UniqueConstraint("user_id", "day", name="uq_secret_event_daily"),)
 
 
+class TreasureCollectible(db.Model):
+    """Daily, per-user treasure collectibles with server-verified XP claims."""
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    day = db.Column(db.String(10), nullable=False, index=True)
+    collectible_id = db.Column(db.String(40), nullable=False)
+    location = db.Column(db.String(40), nullable=False)
+    token_hash = db.Column(db.String(64), nullable=False)
+    xp_awarded = db.Column(db.Integer, nullable=False, default=0)
+    collected = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    collected_at = db.Column(db.DateTime)
+    __table_args__ = (db.UniqueConstraint("user_id", "day", "collectible_id", name="uq_treasure_daily_collectible"),)
+
+
 class QuestActivity(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
@@ -1879,6 +1894,84 @@ def secret_event_claim():
     db.session.commit()
     session.pop("secret_event_token", None)
     return jsonify({"message":f"Secret surprise collected · +{claim.xp_awarded} XP", "xp_awarded":claim.xp_awarded, "xp":progress.xp, "level":progress.xp//100+1})
+
+# SkillSwap Treasure Hunt: daily hidden collectibles placed across real app sections.
+_TREASURE_SPOTS = [
+    {"id":"welcome_gem", "location":"overview", "area":"Home Base", "clue":"Start where every SkillSwap journey begins.", "icon":"💎", "name":"Welcome Gem", "xp":10},
+    {"id":"mentor_star", "location":"mentor", "area":"AI Mentor", "clue":"Find the place where questions turn into learning.", "icon":"⭐", "name":"Mentor Star", "xp":15},
+    {"id":"room_crystal", "location":"rooms", "area":"Learning Rooms", "clue":"Look where learners gather to grow together.", "icon":"🔮", "name":"Room Crystal", "xp":15},
+    {"id":"community_coin", "location":"community", "area":"Community", "clue":"A good community always shares more than skills.", "icon":"🪙", "name":"Community Coin", "xp":10},
+    {"id":"quest_trophy", "location":"quest", "area":"Quest & Progress", "clue":"Your progress page may hold a little extra progress.", "icon":"🏆", "name":"Quest Trophy", "xp":15},
+    {"id":"arena_shard", "location":"arena", "area":"Arena", "clue":"Competitors leave more than project entries behind.", "icon":"🧩", "name":"Arena Shard", "xp":15},
+    {"id":"discover_pearl", "location":"discover", "area":"Discover", "clue":"Find the place where new learning partners appear.", "icon":"🦪", "name":"Discovery Pearl", "xp":10},
+]
+
+def _treasure_payload(user):
+    day = _quest_day()
+    rows = TreasureCollectible.query.filter_by(user_id=user.id, day=day).all()
+    token_map = session.get("treasure_tokens", {})
+    items = []
+    for row in rows:
+        spot = next((x for x in _TREASURE_SPOTS if x["id"] == row.collectible_id), None)
+        if not spot: continue
+        items.append({"id":row.collectible_id,"location":row.location,"area":spot["area"],"clue":spot["clue"],"icon":spot["icon"],"name":spot["name"],"xp":row.xp_awarded,"collected":row.collected,"token":token_map.get(row.collectible_id)})
+    collected = sum(1 for x in items if x["collected"])
+    return {"day":day,"items":items,"collected":collected,"total":len(items),"xp_earned":sum(x["xp"] for x in items if x["collected"]),"xp_available":sum(x["xp"] for x in items if not x["collected"])}
+
+@app.get("/api/treasure-hunt")
+def treasure_hunt_state():
+    user, problem = require_user()
+    if problem: return problem
+    day = _quest_day()
+    rows = TreasureCollectible.query.filter_by(user_id=user.id, day=day).all()
+    if not rows:
+        import random, hashlib
+        spots = random.SystemRandom().sample(_TREASURE_SPOTS, 5)
+        token_map = {}
+        for spot in spots:
+            token = secrets.token_urlsafe(32)
+            token_map[spot["id"]] = token
+            db.session.add(TreasureCollectible(user_id=user.id, day=day, collectible_id=spot["id"], location=spot["location"], token_hash=hashlib.sha256(token.encode()).hexdigest(), xp_awarded=spot["xp"]))
+        db.session.commit()
+        session["treasure_tokens"] = token_map
+    else:
+        token_map = session.get("treasure_tokens", {})
+        # Re-issue session-bound tokens for uncollected finds after a fresh login/session.
+        import hashlib
+        changed = False
+        for row in rows:
+            if row.collected: continue
+            if not token_map.get(row.collectible_id):
+                token = secrets.token_urlsafe(32)
+                token_map[row.collectible_id] = token
+                row.token_hash = hashlib.sha256(token.encode()).hexdigest()
+                changed = True
+        if changed: db.session.commit()
+        session["treasure_tokens"] = token_map
+    return jsonify({"treasure_hunt":_treasure_payload(user)})
+
+@app.post("/api/treasure-hunt/collect")
+def treasure_hunt_collect():
+    user, problem = require_user()
+    if problem: return problem
+    data = request.get_json(silent=True) or {}
+    collectible_id = str(data.get("collectible_id", ""))[:40]
+    token = str(data.get("token", ""))
+    row = TreasureCollectible.query.filter_by(user_id=user.id, day=_quest_day(), collectible_id=collectible_id).first()
+    if not row or row.collected: return error("This treasure is unavailable or has already been collected.", 409)
+    token_map = session.get("treasure_tokens", {})
+    expected = token_map.get(collectible_id, "")
+    if not token or not expected or not secrets.compare_digest(token, expected):
+        return error("Treasure token expired. Refresh the hunt and try again.", 403)
+    import hashlib
+    if not secrets.compare_digest(row.token_hash, hashlib.sha256(token.encode()).hexdigest()):
+        return error("This treasure token is invalid.", 403)
+    progress = _quest_profile(user.id)
+    progress.xp += row.xp_awarded
+    row.collected = True
+    row.collected_at = datetime.now(timezone.utc)
+    db.session.commit()
+    return jsonify({"message":f"{collectible_id.replace('_',' ').title()} collected · +{row.xp_awarded} XP", "xp_awarded":row.xp_awarded,"xp":progress.xp,"level":progress.xp//100+1,"treasure_hunt":_treasure_payload(user)})
 
 # Learning Rooms: public discovery, member-only chat and hosted video sessions.
 def _room_member(room_id, user_id):

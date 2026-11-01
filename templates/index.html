@@ -252,6 +252,14 @@
       <p class="mini-games-note" id="miniGamesNote">Rewards are verified and saved to your SkillSwap XP profile.</p>
       <div class="mini-games-login" id="miniGamesLogin" hidden>Log in to play games and save XP to your account.</div>
     </section>
+    <section class="treasure-hunt" id="treasureHuntPanel" aria-label="Daily treasure hunt">
+      <div class="treasure-head"><div><span class="pet-care-kicker">EXPLORE • DISCOVER • COLLECT</span><h3>Treasure Hunt <span>🗺️</span></h3><p>Five hidden collectibles are scattered across SkillSwap every day. Follow the clues and find them in their sections.</p></div><div class="treasure-progress"><b id="treasureCount">0/5</b><small>FOUND</small></div></div>
+      <div class="treasure-progress-track"><i id="treasureProgressBar"></i></div>
+      <div class="treasure-stats"><span id="treasureXpEarned">⚡ 0 XP collected</span><span id="treasureXpLeft">75 XP hidden</span></div>
+      <div class="treasure-clues" id="treasureClues"><div class="treasure-loading">Your daily treasure map is being prepared…</div></div>
+      <div class="treasure-message" id="treasureMessage" aria-live="polite">Tip: open a clue's section. A small glowing treasure marker will appear there.</div>
+      <div class="treasure-login" id="treasureLogin" hidden>Log in to discover treasures and save XP to your profile.</div>
+    </section>
     <div class="assistant-intro"><strong id="petGreeting">Hey there, learner! 👋</strong><p>I'm your little SkillSwap robot. Ask me anything, tell me how learning is going, or let me guide you around.</p></div>
     <div class="assistant-quick" id="assistantQuick"><button type="button" data-question="Help me find a learning partner">Find a partner</button><button type="button" data-question="What should I learn next?">What to learn?</button><button type="button" data-question="How do I use SkillSwap?">Guide me</button></div>
     <div class="assistant-messages" id="assistantMessages" aria-live="polite"><div class="chat-message bot">Beep boop! 🤖 I'm here whenever you need a hand. What's on your mind?</div></div>
@@ -291,4 +299,5 @@
 <script src="{{ url_for('static', filename='mini_games.js') }}"></script>
 <script src="{{ url_for('static', filename='secret_events.js') }}"></script>
 <script src="{{ url_for('static', filename='pet_personality.js') }}"></script>
+<script src="{{ url_for('static', filename='treasure_hunt.js') }}"></script>
 </body></html>
