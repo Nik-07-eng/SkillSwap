@@ -148,3 +148,7 @@ API: `POST /api/skill-analyzer` (authenticated JSON: `goal`, optional `level`, o
 - Sentiment is estimated using a transparent built-in word lexicon with negation and intensifier handling, blended with the 1–5 star rating. Theme tags identify mentions of teaching clarity, communication, preparation/punctuality, practical learning, and engagement/support.
 - The **Try the text analyser** form analyses pasted text without saving it. It is useful for a classroom demonstration when there are not yet enough submitted reviews.
 - This is an explainable NLP heuristic, not a trained neural network or a guarantee of human sentiment. Sarcasm, mixed-language comments, and context-dependent phrases may be misclassified.
+
+
+## Futuristic classic responsive UI update
+The navigation now groups the four intelligence tools under **AI LAB – SkillSwap Intelligence**. The overview includes a launch panel for Smart Match, Learning Path, Skill Analyzer and Feedback Analyzer. The interface uses a midnight sidebar, warm light workspace, restrained aurora accents, responsive AI cards, and a slide-in mobile navigation drawer. On phones, open navigation with the menu button in the top bar; choosing any section closes the drawer.
