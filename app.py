@@ -7,7 +7,7 @@ import secrets
 from pathlib import Path
 from werkzeug.utils import secure_filename
 from flask import send_from_directory
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 from flask import Flask, request, jsonify, session, render_template
 from dotenv import load_dotenv
@@ -281,6 +281,44 @@ class MentorAttempt(db.Model):
     total = db.Column(db.Integer, nullable=False, default=0)
     feedback = db.Column(db.Text, default="")
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+
+class ArenaCompetition(db.Model):
+    """One automatically published weekly community competition."""
+    id = db.Column(db.Integer, primary_key=True)
+    week_key = db.Column(db.String(8), unique=True, nullable=False, index=True)
+    title = db.Column(db.String(140), nullable=False)
+    theme = db.Column(db.String(80), nullable=False)
+    brief = db.Column(db.String(1600), nullable=False)
+    deliverables = db.Column(db.String(1000), default="")
+    starts_on = db.Column(db.String(10), nullable=False)
+    ends_on = db.Column(db.String(10), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    submissions = db.relationship("ArenaSubmission", backref="competition", cascade="all, delete-orphan")
+
+
+class ArenaSubmission(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    competition_id = db.Column(db.Integer, db.ForeignKey("arena_competition.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    title = db.Column(db.String(140), nullable=False)
+    description = db.Column(db.String(2500), nullable=False)
+    demo_url = db.Column(db.String(1000), default="")
+    repo_url = db.Column(db.String(1000), default="")
+    tags = db.Column(db.String(300), default="")
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    user = db.relationship("User")
+    votes = db.relationship("ArenaVote", backref="submission", cascade="all, delete-orphan")
+    __table_args__ = (db.UniqueConstraint("competition_id", "user_id", name="uq_arena_one_submission_per_user"),)
+
+
+class ArenaVote(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    submission_id = db.Column(db.Integer, db.ForeignKey("arena_submission.id"), nullable=False, index=True)
+    voter_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    __table_args__ = (db.UniqueConstraint("submission_id", "voter_id", name="uq_arena_vote_per_user"),)
 
 
 # Transparent, dependency-free sentiment lexicon used by Feedback Analyzer.
@@ -1879,6 +1917,107 @@ def community_connections():
         "other_id": r.recipient_id if r.requester_id == user.id else r.requester_id,
         "other_name": (r.recipient if r.requester_id == user.id else r.requester).name,
         "incoming": r.recipient_id == user.id and r.status == "pending"} for r in rows]})
+
+_ARENA_WEEKLY_THEMES = [
+    {"title":"Build a Better Study Planner", "theme":"Productivity & EdTech", "brief":"Design and build a small tool that helps students plan study sessions, track progress or stay consistent. Focus on a clear user problem and a usable experience.", "deliverables":"A short explanation, screenshots or demo link, and (optionally) a source-code repository."},
+    {"title":"Make Learning More Accessible", "theme":"Accessibility & Design", "brief":"Create a digital experience that makes learning easier to access. Consider readability, keyboard navigation, clear feedback and inclusive interaction.", "deliverables":"A working prototype or design, a short description of your decisions, and an optional repository link."},
+    {"title":"Solve a Campus Problem with Tech", "theme":"Innovation & Problem Solving", "brief":"Identify a real student or campus problem and build a small practical solution. Explain who it helps and how you would improve it next.", "deliverables":"Problem statement, solution summary, demo link or screenshots, and optional source code."},
+    {"title":"Create a Helpful AI Learning Tool", "theme":"AI & Learning", "brief":"Prototype a responsible AI-assisted learning feature such as a quiz helper, revision planner or concept explainer. Include how users can verify its output.", "deliverables":"Feature explanation, example interaction or demo, limitations, and optional repository link."},
+]
+
+def _arena_today():
+    return datetime.now(ZoneInfo("Asia/Kolkata")).date()
+
+def _arena_current_competition():
+    today = _arena_today()
+    monday = today - timedelta(days=today.weekday())
+    sunday = monday + timedelta(days=6)
+    iso = today.isocalendar()
+    week_key = f"{iso.year}{iso.week:02d}"
+    contest = ArenaCompetition.query.filter_by(week_key=week_key).first()
+    if not contest:
+        theme = _ARENA_WEEKLY_THEMES[(iso.week - 1) % len(_ARENA_WEEKLY_THEMES)]
+        contest = ArenaCompetition(week_key=week_key, title=theme["title"], theme=theme["theme"], brief=theme["brief"], deliverables=theme["deliverables"], starts_on=monday.isoformat(), ends_on=sunday.isoformat())
+        db.session.add(contest)
+        db.session.commit()
+    return contest
+
+def _arena_submission_public(submission, viewer_id=None):
+    votes = len(submission.votes)
+    voted = any(v.voter_id == viewer_id for v in submission.votes) if viewer_id else False
+    return {"id": submission.id, "user_id": submission.user_id, "user_name": submission.user.name if submission.user else "Learner", "title": submission.title, "description": submission.description, "demo_url": submission.demo_url or "", "repo_url": submission.repo_url or "", "tags": [x.strip() for x in (submission.tags or "").split(",") if x.strip()], "votes": votes, "voted": voted, "is_owner": viewer_id == submission.user_id if viewer_id else False, "created_at": submission.created_at.isoformat() if submission.created_at else None, "updated_at": submission.updated_at.isoformat() if submission.updated_at else None}
+
+def _arena_competition_public(contest, viewer_id=None):
+    submissions = sorted(contest.submissions, key=lambda x: (len(x.votes), x.created_at or datetime.min), reverse=True)
+    own = next((s for s in submissions if viewer_id and s.user_id == viewer_id), None)
+    today = _arena_today()
+    return {"id": contest.id, "week_key": contest.week_key, "title": contest.title, "theme": contest.theme, "brief": contest.brief, "deliverables": contest.deliverables, "starts_on": contest.starts_on, "ends_on": contest.ends_on, "days_left": max(0, (datetime.fromisoformat(contest.ends_on).date() - today).days), "is_open": contest.starts_on <= today.isoformat() <= contest.ends_on, "submission_count": len(submissions), "my_submission": _arena_submission_public(own, viewer_id) if own else None, "submissions": [_arena_submission_public(s, viewer_id) for s in submissions]}
+
+@app.get("/api/arena")
+def arena_current():
+    user = current_user()
+    contest = _arena_current_competition()
+    return jsonify({"competition": _arena_competition_public(contest, user.id if user else None), "logged_in": bool(user)})
+
+@app.post("/api/arena/submit")
+def arena_submit():
+    user, auth_error = require_user()
+    if auth_error: return auth_error
+    contest = _arena_current_competition()
+    if not (contest.starts_on <= _arena_today().isoformat() <= contest.ends_on):
+        return error("This week's submission window has closed.", 409)
+    data = request.get_json(silent=True) or {}
+    title = str(data.get("title", "")).strip()[:140]
+    description = str(data.get("description", "")).strip()[:2500]
+    demo_url = str(data.get("demo_url", "")).strip()[:1000]
+    repo_url = str(data.get("repo_url", "")).strip()[:1000]
+    tags = str(data.get("tags", "")).strip()[:300]
+    if len(title) < 4 or len(description) < 30:
+        return error("Add a title (at least 4 characters) and a meaningful description (at least 30 characters).")
+    for label, value in (("Demo", demo_url), ("Repository", repo_url)):
+        if value and (not re.match(r"^https?://", value, re.I) or len(value) > 1000):
+            return error(f"{label} link must start with http:// or https://.")
+    submission = ArenaSubmission.query.filter_by(competition_id=contest.id, user_id=user.id).first()
+    is_new = submission is None
+    if is_new:
+        submission = ArenaSubmission(competition_id=contest.id, user_id=user.id)
+        db.session.add(submission)
+    submission.title, submission.description = title, description
+    submission.demo_url, submission.repo_url, submission.tags = demo_url, repo_url, tags
+    db.session.commit()
+    # Award a one-time participation bonus through the existing Quest XP system.
+    if is_new:
+        progress = QuestProgress.query.filter_by(user_id=user.id).first()
+        if not progress:
+            progress = QuestProgress(user_id=user.id, xp=0, streak=0, total_checkins=0)
+            db.session.add(progress)
+        progress.xp = (progress.xp or 0) + 50
+        db.session.commit()
+    return jsonify({"message": "Your Arena entry has been published." if is_new else "Your Arena entry has been updated.", "submission": _arena_submission_public(submission, user.id), "competition": _arena_competition_public(contest, user.id), "xp_awarded": 50 if is_new else 0}), (201 if is_new else 200)
+
+@app.post("/api/arena/submissions/<int:submission_id>/vote")
+def arena_vote(submission_id):
+    user, auth_error = require_user()
+    if auth_error: return auth_error
+    submission = db.session.get(ArenaSubmission, submission_id)
+    if not submission: return error("Submission not found.", 404)
+    if submission.user_id == user.id: return error("You cannot vote for your own submission.", 403)
+    contest = submission.competition
+    if not (contest.starts_on <= _arena_today().isoformat() <= contest.ends_on):
+        return error("Voting is closed for this competition.", 409)
+    existing = ArenaVote.query.filter_by(submission_id=submission.id, voter_id=user.id).first()
+    if existing:
+        db.session.delete(existing); action = "removed"
+    else:
+        db.session.add(ArenaVote(submission_id=submission.id, voter_id=user.id)); action = "added"
+    db.session.commit()
+    return jsonify({"message": "Vote " + action + ".", "submission": _arena_submission_public(submission, user.id)})
+
+@app.get("/api/arena/leaderboard")
+def arena_leaderboard():
+    contest = _arena_current_competition()
+    rows = sorted(contest.submissions, key=lambda x: (len(x.votes), x.created_at or datetime.min), reverse=True)
+    return jsonify({"leaderboard": [{"rank": i + 1, "submission_id": s.id, "title": s.title, "user_name": s.user.name if s.user else "Learner", "votes": len(s.votes)} for i, s in enumerate(rows[:20])]})
 
 with app.app_context():
     db.create_all()

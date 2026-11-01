@@ -249,3 +249,19 @@ The SkillBuddy AI Mentor adds a dedicated learning workspace with four areas:
 - `mentor_attempt` stores quiz and interview practice results.
 
 The tables are created by the existing `db.create_all()` startup routine. No new Python package is required. Results are tied to the authenticated user. For production deployments, use persistent PostgreSQL storage rather than ephemeral SQLite storage on a free hosting filesystem.
+
+## SkillSwap Arena — weekly competitions
+
+SkillSwap Arena publishes one themed student challenge per ISO week (India Standard Time). The weekly brief rotates through productivity/EdTech, accessibility, campus problem-solving and AI-assisted learning themes. Learners can publish one entry per week with a title, detailed explanation, tags, optional demo URL and optional source-code URL. The author can update their entry until the weekly window closes.
+
+Community members can browse entries and cast one vote per entry. Self-voting is blocked, duplicate votes are prevented by a database uniqueness constraint, and the leaderboard ranks entries by votes (submission time breaks ties). The first publication in a week awards 50 XP through the existing SkillSwap Quest XP balance; editing the same entry does not award XP again. The Arena is a community showcase and vote-based ranking, not a formal academic grade or verified judging system.
+
+New database tables: `arena_competition`, `arena_submission`, and `arena_vote` (created by the existing `db.create_all()` startup step).
+
+New endpoints:
+- `GET /api/arena` — current weekly brief, entries and signed-in user's entry.
+- `POST /api/arena/submit` — create or update the signed-in user's weekly entry.
+- `POST /api/arena/submissions/<id>/vote` — toggle a vote (self-voting is rejected).
+- `GET /api/arena/leaderboard` — current week's vote ranking.
+
+No additional Python package is required. Competition dates use Asia/Kolkata. For production persistence on Render, use PostgreSQL or another durable database rather than ephemeral local SQLite storage.
