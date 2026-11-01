@@ -33,6 +33,11 @@ Open **http://127.0.0.1:5000**. Do not open the HTML file directly or use Live S
 - **Feedback:** participants can leave one 1–5-star review after an exchange is completed.
 - **Feedback Analyzer:** private dashboard for the signed-in learner to analyse reviews they received, showing average rating, positive/neutral/negative distribution, recurring feedback aspects and review-by-review insights. Includes a non-persistent text-analysis playground.
 - **SkillBuddy help assistant:** built-in help works without an API key; optional OpenAI-powered replies can be enabled using environment settings.
+- **SkillBuddy robot companion:** a persistent floating SVG robot with idle floating animation, speech bubbles, responsive chat panel, quick help prompts, rename option, encouragement button and daily learning tips.
+
+### SkillBuddy companion behaviour
+
+The companion keeps its chosen display name and a short recent chat history in the visitor’s browser (`localStorage`) so the conversation can be restored on that same browser. This is browser-local convenience data, not a server-side account record; it can be cleared by clearing browser site data. When `OPENAI_API_KEY` is configured, SkillBuddy uses the OpenAI Responses API and receives a short, validated recent conversation context for more continuous replies. Without a key, built-in help and navigation guidance remain available. Do not enter passwords or other sensitive information into the companion.
 
 ## OpenAI SkillBuddy (optional)
 

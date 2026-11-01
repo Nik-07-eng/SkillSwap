@@ -270,6 +270,16 @@ def assistant_help():
     question = str(data.get("question", "")).strip()[:500]
     if not question:
         return error("Type a question for SkillBuddy.")
+    # Optional short browser-held conversation context; validate and cap every item.
+    history = data.get("history", [])
+    safe_history = []
+    if isinstance(history, list):
+        for item in history[-8:]:
+            if not isinstance(item, dict) or item.get("role") not in ("user", "assistant"):
+                continue
+            content = str(item.get("content", "")).strip()[:500]
+            if content:
+                safe_history.append({"role": item["role"], "content": [{"type": "input_text", "text": content}]})
     user = current_user()
     context = {
         "signed_in": bool(user),
@@ -283,13 +293,15 @@ def assistant_help():
             "model": os.environ.get("SKILLSWAP_ASSISTANT_MODEL", "gpt-4.1-mini"),
             "input": [
                 {"role": "system", "content": [{"type": "input_text", "text": (
-                    "You are SkillBuddy, a concise and friendly guide for the SkillSwap website. "
-                    "Explain how to register/login, edit a profile and skills, discover people, "
-                    "view two-way matches, manage skill exchange requests, and use accepted exchanges for chat, shared resources, project tasks, video meetings, and feedback. "
-                    "Do not ask for passwords or sensitive data. Do not claim to perform an action; "
-                    "give steps and direct the user to the relevant page. Keep replies under 120 words. "
-                    "Website context: " + json.dumps(context)
+                    "You are SkillBuddy, a warm, playful, supportive robot friend and learning companion inside SkillSwap. "
+                    "Be conversational and encouraging, but concise; use occasional friendly emoji without overdoing it. "
+                    "Help with registration/login, profiles, skills, Discover, Smart Match, Learning Path, Skill Analyzer, Feedback Analyzer, exchanges, chat, resources, projects and video meetings. "
+                    "Ask a short follow-up when the user's goal is unclear. Give clear steps and direct users to the relevant page. "
+                    "Never claim to perform actions you cannot perform. Never request passwords, payment details or sensitive information. "
+                    "For emotional support, be kind and suggest small manageable learning steps; do not present yourself as a therapist. "
+                    "Keep replies under 120 words. Website context: " + json.dumps(context)
                 )}]},
+                *safe_history,
                 {"role": "user", "content": [{"type": "input_text", "text": question}]}
             ],
             "max_output_tokens": 220
@@ -326,7 +338,7 @@ def assistant_help():
     elif any(k in q for k in ("profile", "bio", "department", "skill")):
         answer = "Open My profile to edit your name, department, and bio. You can also add or remove teach/learn skills there; these changes are saved and used for matching."
     else:
-        answer = "I can guide you through accounts, profiles, skills, matching, searching, and skill exchanges. Try asking: How do I create an account? or How do I find matches?"
+        answer = "Hey! I'm SkillBuddy 🤖, your friendly learning sidekick. I can guide you through profiles, finding partners, skill exchanges, collaboration, Learning Path and the AI Lab. Tell me what you're trying to do and we'll take it one step at a time."
     return jsonify({"answer": answer, "mode": "built-in"})
 
 @app.post("/api/register")
