@@ -232,3 +232,20 @@ Tables are created automatically by `db.create_all()` when the app starts. Exist
 - `GET /api/community/connections` — connection list and pending incoming requests.
 
 The feed is refreshed when opened and when users perform actions; it is not a push/WebSocket feed. Project URLs are rendered as external links and are not fetched by the server. Use HTTPS links and share only content you have permission to publish. For a public deployment, use PostgreSQL and persistent file/object storage as appropriate; the community currently stores text and external project links only.
+
+
+## SkillBuddy AI Mentor
+
+The SkillBuddy AI Mentor adds a dedicated learning workspace with four areas:
+
+- **AI Tutor:** Sends learning questions through the existing SkillBuddy assistant endpoint. When `OPENAI_API_KEY` is configured, responses can use the configured OpenAI Responses API model; otherwise the existing built-in website guidance is used.
+- **Knowledge Quiz:** Generates a fresh topic-focused multiple-choice practice set, checks answers server-side, provides explanations and saves the result. The current quiz engine uses curated question banks for Python, HTML, JavaScript, SQL and Data Science, plus general practice questions for other topics. It is formative practice, not a certified exam.
+- **Interview Practice:** Supplies technical, behavioural or project discussion prompts and evaluates a typed response with a transparent rubric covering answer development, examples, structure, relevance and clarity. This is a heuristic coaching estimate, not an employer assessment or a generative-AI judgement.
+- **My Progress:** Shows recent quiz and interview sessions saved to the signed-in account.
+
+### Mentor data tables
+
+- `mentor_quiz` stores quiz question sets and one-time submission state so answer keys remain server-side until the quiz is submitted.
+- `mentor_attempt` stores quiz and interview practice results.
+
+The tables are created by the existing `db.create_all()` startup routine. No new Python package is required. Results are tied to the authenticated user. For production deployments, use persistent PostgreSQL storage rather than ephemeral SQLite storage on a free hosting filesystem.

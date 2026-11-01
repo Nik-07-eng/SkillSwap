@@ -262,6 +262,27 @@ class QuestActivity(db.Model):
     day = db.Column(db.String(10), nullable=False, index=True)
     created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
 
+class MentorQuiz(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    topic = db.Column(db.String(100), nullable=False)
+    level = db.Column(db.String(20), nullable=False, default="Beginner")
+    questions_json = db.Column(db.Text, nullable=False)
+    used = db.Column(db.Boolean, nullable=False, default=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class MentorAttempt(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    mode = db.Column(db.String(20), nullable=False)  # quiz or interview
+    topic = db.Column(db.String(100), nullable=False)
+    score = db.Column(db.Integer, nullable=False, default=0)
+    total = db.Column(db.Integer, nullable=False, default=0)
+    feedback = db.Column(db.Text, default="")
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+
+
 # Transparent, dependency-free sentiment lexicon used by Feedback Analyzer.
 # This is an explainable NLP heuristic, not a trained deep-learning model.
 _SENTIMENT_LEXICON = {
@@ -367,6 +388,198 @@ def clean_skill_list(value):
         if len(cleaned) >= 12:
             break
     return cleaned
+
+_MENTOR_QUESTION_BANK = {
+    "python": [
+        ("Which keyword defines a function in Python?", ["func", "def", "function", "lambda"], 1, "The def keyword begins a named function definition."),
+        ("What does len([2, 4, 6]) return?", ["2", "3", "6", "12"], 1, "len() returns the number of items in a sequence."),
+        ("Which structure stores unique values?", ["List", "Tuple", "Set", "Dictionary"], 2, "A set stores unique elements and removes duplicates."),
+        ("What is the result of 7 // 2?", ["3.5", "3", "4", "1"], 1, "// performs floor division, returning 3."),
+        ("Which block handles an exception?", ["catch", "except", "error", "final"], 1, "Python uses try/except to handle exceptions."),
+        ("Which data type represents True or False?", ["bool", "str", "float", "dict"], 0, "bool is Python's Boolean type."),
+        ("What does a dictionary store?", ["Only numbers", "Key-value pairs", "Ordered characters only", "Unique values only"], 1, "Dictionaries map keys to values."),
+        ("Which statement imports a module?", ["include math", "using math", "import math", "load math"], 2, "The import statement makes a module available."),
+    ],
+    "html": [
+        ("What is the purpose of semantic HTML?", ["Make pages faster automatically", "Give content meaningful structure", "Replace CSS", "Store database records"], 1, "Semantic elements describe the role of content, improving accessibility and structure."),
+        ("Which element creates a hyperlink?", ["<link>", "<a>", "<href>", "<url>"], 1, "The anchor element <a> creates links."),
+        ("Where should page metadata usually be placed?", ["<body>", "<footer>", "<head>", "<main>"], 2, "The head contains metadata, title and linked resources."),
+        ("Which attribute provides alternative text for an image?", ["title", "alt", "srcset", "role"], 1, "alt text communicates image meaning to assistive technology."),
+        ("Which input type is intended for email addresses?", ["text", "mail", "email", "address"], 2, "type=email provides email-oriented input semantics and browser validation."),
+    ],
+    "javascript": [
+        ("Which keyword declares a block-scoped variable that can be reassigned?", ["var", "let", "const", "static"], 1, "let is block-scoped and can be reassigned."),
+        ("What does Array.map() return?", ["The original array only", "A new transformed array", "A number", "A boolean"], 1, "map creates a new array from callback return values."),
+        ("Which operator checks strict equality?", ["=", "==", "===", "!==="], 2, "=== compares value and type without coercion."),
+        ("What does JSON.parse() do?", ["Converts an object to JSON text", "Parses JSON text into a value", "Sends an HTTP request", "Sorts an array"], 1, "JSON.parse converts valid JSON text into a JavaScript value."),
+        ("Which construct handles a rejected Promise with async/await?", ["try/catch", "if/else only", "switch", "forEach"], 0, "Use try/catch around awaited operations to handle rejections."),
+    ],
+    "sql": [
+        ("Which SQL command retrieves rows?", ["GET", "SELECT", "FETCH ALL", "OPEN"], 1, "SELECT queries data from tables or views."),
+        ("Which clause filters rows before grouping?", ["ORDER BY", "HAVING", "WHERE", "LIMIT"], 2, "WHERE filters individual rows before grouping."),
+        ("What is a primary key?", ["A duplicate-friendly label", "A unique row identifier", "A backup table", "A sorting rule"], 1, "A primary key uniquely identifies each row."),
+        ("Which join returns matching rows from both tables?", ["INNER JOIN", "CROSS JOIN", "FULL OUTER JOIN", "UNION"], 0, "INNER JOIN returns rows with matching join conditions."),
+        ("Which command changes existing rows?", ["ALTER", "UPDATE", "INSERT", "CREATE"], 1, "UPDATE modifies values in existing records."),
+    ],
+    "data science": [
+        ("What is the purpose of a test dataset?", ["Train the model repeatedly", "Estimate performance on unseen data", "Increase feature count", "Replace validation"], 1, "A held-out test set estimates generalisation to unseen examples."),
+        ("What does a classification model predict?", ["A continuous value only", "A category or class", "A database schema", "A chart"], 1, "Classification predicts discrete labels or categories."),
+        ("Why scale numeric features?", ["To delete outliers", "To put features on comparable ranges", "To create labels", "To guarantee accuracy"], 1, "Scaling prevents features with large numeric ranges from dominating some algorithms."),
+        ("What is overfitting?", ["Model performs well on new data only", "Model memorises training patterns and generalises poorly", "Dataset has no labels", "Model is too small"], 1, "Overfitting means the model fits training data too closely and performs poorly on unseen data."),
+        ("Which metric is the fraction of predicted positives that are correct?", ["Recall", "Precision", "Accuracy", "MAE"], 1, "Precision = true positives divided by all predicted positives."),
+    ]
+}
+
+
+def _mentor_questions(topic, level, count=5):
+    key = topic.casefold()
+    bank_key = next((k for k in _MENTOR_QUESTION_BANK if k in key or key in k), None)
+    bank = list(_MENTOR_QUESTION_BANK.get(bank_key, []))
+    generic = [
+        (f"When learning {topic}, what is the best first step for a new concept?", ["Memorise without examples", "Understand the idea and try a small example", "Skip fundamentals", "Only watch videos"], 1, "Start with the concept, then practise it with a small concrete example."),
+        (f"Why is practical work important when studying {topic}?", ["It replaces all theory", "It helps test understanding and reveal gaps", "It guarantees expert level", "It removes the need for feedback"], 1, "Practice reveals whether you can apply ideas, not just recognise terminology."),
+        (f"What should you do when a {topic} task fails?", ["Change many things at once", "Read the error, isolate the cause and test one change", "Delete the project", "Ignore the result"], 1, "A systematic debugging process makes the cause easier to identify."),
+        (f"Which habit best supports long-term progress in {topic}?", ["One long session every few months", "Short, consistent practice with reflection", "Avoid challenging tasks", "Never review mistakes"], 1, "Regular deliberate practice and reflection support retention and improvement."),
+        (f"How can you check whether you understand a {topic} concept?", ["Explain it and solve a new example independently", "Reread the same paragraph only", "Copy a solution", "Skip the exercise"], 0, "Explaining and applying a concept independently is a stronger check of understanding."),
+    ]
+    bank.extend(generic)
+    level_questions = {
+        "Beginner": [
+            (f"What is the best way to build a foundation in {topic}?", ["Skip basics", "Learn core terms and practise small examples", "Only memorise definitions", "Avoid feedback"], 1, "Build foundations with core concepts and small hands-on exercises.")
+        ],
+        "Intermediate": [
+            (f"When applying {topic} to a project, what should guide your choice of approach?", ["Use the most complicated technique", "Choose a method that fits requirements and constraints", "Copy the first example found", "Ignore maintainability"], 1, "Good decisions balance requirements, constraints, clarity and maintainability."),
+            (f"How should you improve a working {topic} solution?", ["Change everything at once", "Test edge cases, measure results and refine", "Remove documentation", "Avoid user feedback"], 1, "Validate with edge cases and evidence before making targeted improvements.")
+        ],
+        "Advanced": [
+            (f"When designing a larger {topic} solution, what is most important?", ["Optimise before understanding requirements", "Balance architecture, reliability, performance and trade-offs", "Avoid testing", "Keep all logic in one component"], 1, "Advanced work involves explicit trade-offs across architecture, reliability and performance."),
+            (f"How should you validate a proposed advanced {topic} technique?", ["Assume it is best practice", "Compare alternatives using measurable criteria and representative cases", "Use it because it is new", "Skip peer review"], 1, "Compare alternatives using evidence and representative workloads or scenarios.")
+        ]
+    }
+    bank.extend(level_questions.get(level, []))
+    # Select a fresh mix on each request; answers remain on the server until submission.
+    return secrets.SystemRandom().sample(bank, min(max(3, count), len(bank)))
+
+
+@app.get("/api/mentor/context")
+def mentor_context():
+    user, denied = require_user()
+    if denied: return denied
+    attempts = MentorAttempt.query.filter_by(user_id=user.id).order_by(MentorAttempt.created_at.desc()).limit(8).all()
+    return jsonify({"skills": [s.name for s in user.skills if s.kind == "learn"] or [s.name for s in user.skills if s.kind == "teach"],
+        "name": user.name, "attempts": [{"mode": a.mode, "topic": a.topic, "score": a.score, "total": a.total, "feedback": a.feedback, "created_at": a.created_at.isoformat() if a.created_at else None} for a in attempts]})
+
+
+@app.post("/api/mentor/quiz")
+def mentor_create_quiz():
+    user, denied = require_user()
+    if denied: return denied
+    data = request.get_json(silent=True) or {}
+    topic = str(data.get("topic", "")).strip()[:100]
+    level = str(data.get("level", "Beginner"))
+    if not topic: return error("Choose a skill or topic for your quiz.")
+    if level not in ("Beginner", "Intermediate", "Advanced"): level = "Beginner"
+    try: count = max(3, min(10, int(data.get("count", 5))))
+    except (TypeError, ValueError): count = 5
+    raw = _mentor_questions(topic, level, count)
+    questions = []
+    for i, (prompt, options, answer, explanation) in enumerate(raw):
+        questions.append({"id": i, "prompt": prompt, "options": options, "answer": answer, "explanation": explanation})
+    quiz = MentorQuiz(user_id=user.id, topic=topic, level=level, questions_json=json.dumps(questions))
+    db.session.add(quiz); db.session.commit()
+    return jsonify({"quiz_id": quiz.id, "topic": topic, "level": level, "questions": [{"id": q["id"], "prompt": q["prompt"], "options": q["options"]} for q in questions], "mode": "curated-question-bank", "note": "Questions are selected from a built-in topic bank and practice templates; this is formative practice, not a certified exam."})
+
+
+@app.post("/api/mentor/quiz/submit")
+def mentor_submit_quiz():
+    user, denied = require_user()
+    if denied: return denied
+    data = request.get_json(silent=True) or {}
+    try: quiz_id = int(data.get("quiz_id")); answers = data.get("answers", {})
+    except (TypeError, ValueError): return error("Invalid quiz submission.")
+    quiz = db.session.get(MentorQuiz, quiz_id)
+    if not quiz or quiz.user_id != user.id: return error("Quiz not found.", 404)
+    if quiz.used: return error("This quiz has already been submitted.", 409)
+    if not isinstance(answers, dict): return error("Quiz answers are invalid.")
+    questions = json.loads(quiz.questions_json)
+    correct = 0; details = []
+    for q in questions:
+        try: selected = int(answers.get(str(q["id"]), -1))
+        except (TypeError, ValueError): selected = -1
+        is_correct = selected == q["answer"]
+        correct += int(is_correct)
+        details.append({"id": q["id"], "correct": is_correct, "correct_index": q["answer"], "explanation": q["explanation"]})
+    total = len(questions); score = round(correct * 100 / total) if total else 0
+    feedback = "Excellent work — you have a strong grasp of this set." if score >= 80 else "Good progress. Review the explanations for missed questions, then try another practice set." if score >= 50 else "Use this as a learning checkpoint. Revisit the fundamentals and retry with a fresh set."
+    quiz.used = True
+    attempt = MentorAttempt(user_id=user.id, mode="quiz", topic=quiz.topic, score=correct, total=total, feedback=feedback)
+    db.session.add(attempt); db.session.commit()
+    return jsonify({"score": correct, "total": total, "percentage": score, "feedback": feedback, "details": details, "attempt_id": attempt.id})
+
+
+_MENTOR_INTERVIEW_QUESTIONS = {
+    "python": ["Explain the difference between a list and a tuple in Python.", "How would you debug a Python function that returns an unexpected result?", "What is a Python dictionary, and when would you use one?"],
+    "web development": ["Explain how HTML, CSS and JavaScript work together in a web page.", "How would you make a website responsive on mobile devices?", "What happens when a browser requests a web page from a server?"],
+    "data science": ["How would you handle missing values in a dataset?", "Explain the difference between classification and regression.", "How would you detect whether a model is overfitting?"],
+    "sql": ["Explain the difference between WHERE and HAVING.", "What is a database index, and what trade-offs does it introduce?", "How would you find duplicate records in a table?"],
+    "communication": ["Tell me about a time you explained a difficult idea to someone.", "How do you respond when a teammate disagrees with your approach?", "How would you structure a short presentation for a new audience?"]
+}
+
+
+@app.post("/api/mentor/interview/question")
+def mentor_interview_question():
+    user, denied = require_user()
+    if denied: return denied
+    data = request.get_json(silent=True) or {}
+    topic = str(data.get("topic", "")).strip()[:100]
+    if not topic: return error("Choose an interview skill or role.")
+    key = topic.casefold()
+    bank_key = next((k for k in _MENTOR_INTERVIEW_QUESTIONS if k in key or key in k), None)
+    focus = str(data.get("focus", "technical"))
+    if focus == "behavioural":
+        questions = ["Tell me about a time you faced a difficult challenge while learning or working. What did you do?", "Describe a time you worked with someone who had a different opinion. How did you handle it?", "Tell me about a mistake you made and what you learned from it."]
+    elif focus == "project":
+        questions = [f"Walk me through a project where you used {topic}. What problem did it solve?", "What was the most difficult technical decision in your project, and why did you choose that approach?", "If you had another week to improve your project, what would you change first?"]
+    else:
+        questions = _MENTOR_INTERVIEW_QUESTIONS.get(bank_key, [f"What interests you about {topic}, and how have you practised it?", f"Describe a challenge you faced while working with {topic}. How did you approach it?", f"If you had to teach a beginner one important {topic} concept, what would you choose and why?"])
+    previous = MentorAttempt.query.filter_by(user_id=user.id, mode="interview", topic=topic).count()
+    question = questions[previous % len(questions)]
+    return jsonify({"question": question, "topic": topic, "question_number": previous + 1, "guidance": "Use a clear structure: context, your action, the reasoning behind it, and the result. Include a specific example where possible."})
+
+
+@app.post("/api/mentor/interview/evaluate")
+def mentor_interview_evaluate():
+    user, denied = require_user()
+    if denied: return denied
+    data = request.get_json(silent=True) or {}
+    topic = str(data.get("topic", "")).strip()[:100]
+    question = str(data.get("question", "")).strip()[:500]
+    answer = str(data.get("answer", "")).strip()[:4000]
+    if not topic or not question or len(answer) < 20: return error("Choose a topic and write an answer of at least 20 characters.")
+    words = re.findall(r"\b[\w'-]+\b", answer)
+    lower = answer.casefold()
+    signals = {"example": any(x in lower for x in ("for example", "for instance", "when i", "in my project", "i worked")),
+        "structure": any(x in lower for x in ("first", "then", "because", "therefore", "finally", "result")),
+        "technical": any(x in lower for x in ("function", "data", "user", "system", "design", "test", "process", "problem", "solution", "team", "project", "code", "result"))}
+    length_score = min(30, len(words) * 30 // 90)
+    detail_score = 20 if signals["example"] else 8
+    structure_score = 20 if signals["structure"] else 8
+    relevance_score = 20 if signals["technical"] else 10
+    clarity_score = 10 if len(words) >= 35 else 5
+    score = min(100, length_score + detail_score + structure_score + relevance_score + clarity_score)
+    tips = []
+    if not signals["example"]: tips.append("Add a specific example from a class, project or collaboration.")
+    if not signals["structure"]: tips.append("Organise the answer into context, action, reasoning and result.")
+    if len(words) < 35: tips.append("Develop the answer with two or three relevant details rather than a one-line response.")
+    if not signals["technical"]: tips.append("Use precise terms related to the topic and explain how you applied them.")
+    if not tips: tips.append("Good structure. Make the answer even stronger by quantifying the outcome or explaining what you learned.")
+    feedback = " ".join(tips)
+    db.session.add(MentorAttempt(user_id=user.id, mode="interview", topic=topic, score=score, total=100, feedback=feedback))
+    db.session.commit()
+    return jsonify({"score": score, "word_count": len(words), "signals": signals, "feedback": feedback,
+        "rubric": [{"name": "Answer development", "score": length_score, "max": 30}, {"name": "Specific example", "score": detail_score, "max": 20}, {"name": "Structure", "score": structure_score, "max": 20}, {"name": "Topic relevance", "score": relevance_score, "max": 20}, {"name": "Clarity", "score": clarity_score, "max": 10}],
+        "note": "This is a transparent heuristic coaching estimate, not an employer assessment or AI judgement of your ability."})
+
 
 @app.get("/")
 def home():
