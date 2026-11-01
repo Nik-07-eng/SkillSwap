@@ -1,0 +1,12 @@
+# Local secrets and environment
+.env
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+instance/
+*.db
+instance/
+__pycache__/
+*.py[cod]
+.venv/
