@@ -171,3 +171,15 @@ Additional motion polish includes a subtle page entrance transition, button spin
 - Use small inline spinners or skeletons for individual data panels (matches, profiles, feedback) rather than covering the whole screen for every API request.
 - Use short page entrance transitions (roughly 300–400 ms) and hover feedback; avoid constant bouncing, flashing, or long transitions that slow down navigation.
 - Respect reduced-motion preferences and keep the content usable if JavaScript animations are disabled.
+
+## Premium UI experience upgrade
+
+The interface now combines five visual/product directions:
+
+- **Modern EdTech:** clearer learning workspace, skill-first discovery, profile cards, search and sorting.
+- **Bento dashboard:** responsive cards for learning level, XP, streak, achievements and quick actions.
+- **Gamified learning:** daily check-in (+15 XP), completed exchange (+50 XP), levels and four unlockable badges. This lightweight gamification state is stored in the current browser per account; it is not a server-synchronised leaderboard or a verified measure of learning time.
+- **Selective 3D interaction:** a subtle pointer-responsive tilt on the landing illustration, with touch-device and reduced-motion fallbacks. No 3D package is required.
+- **Social learning:** clearer skill-first community profiles, complementary skill discovery, chat/video collaboration entry points, and a community contributor panel ranked by the number of skills members list as teachable. This panel uses actual public profile data; it is not a rating/reputation score.
+
+The existing Flask API, authentication, AI Lab, exchanges, chat, resources and video-call workflow are retained. The new dashboard and interactions are frontend enhancements and do not require database migrations.
