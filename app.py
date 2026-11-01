@@ -139,6 +139,54 @@ class Feedback(db.Model):
     reviewee = db.relationship("User", foreign_keys=[reviewee_id])
     __table_args__ = (db.UniqueConstraint("swap_id", "reviewer_id", name="uq_feedback_swap_reviewer"),)
 
+
+class LearningRoom(db.Model):
+    """A public, member-based collaborative learning room."""
+    id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=False)
+    topic = db.Column(db.String(80), nullable=False)
+    description = db.Column(db.String(600), default="")
+    level = db.Column(db.String(20), default="All levels")
+    capacity = db.Column(db.Integer, default=12)
+    host_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    status = db.Column(db.String(20), default="open", nullable=False, index=True)
+    meeting_url = db.Column(db.String(500), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    closed_at = db.Column(db.DateTime, nullable=True)
+    host = db.relationship("User", foreign_keys=[host_id])
+    members = db.relationship("LearningRoomMember", backref="room", cascade="all, delete-orphan")
+
+    def public(self, viewer_id=None):
+        member_ids = {m.user_id for m in self.members}
+        return {
+            "id": self.id, "title": self.title, "topic": self.topic,
+            "description": self.description or "", "level": self.level,
+            "capacity": self.capacity, "host_id": self.host_id,
+            "host_name": self.host.name if self.host else "SkillSwap host",
+            "status": self.status, "meeting_url": self.meeting_url,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "member_count": len(member_ids), "joined": viewer_id in member_ids if viewer_id else False,
+            "is_host": viewer_id == self.host_id if viewer_id else False,
+        }
+
+
+class LearningRoomMember(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    room_id = db.Column(db.Integer, db.ForeignKey("learning_room.id"), nullable=False, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    joined_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    user = db.relationship("User")
+    __table_args__ = (db.UniqueConstraint("room_id", "user_id", name="uq_learning_room_member"),)
+
+
+class LearningRoomMessage(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    room_id = db.Column(db.Integer, db.ForeignKey("learning_room.id"), nullable=False, index=True)
+    sender_id = db.Column(db.Integer, db.ForeignKey("user.id"), nullable=False, index=True)
+    body = db.Column(db.String(2000), nullable=False)
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), index=True)
+    sender = db.relationship("User")
+
 # Transparent, dependency-free sentiment lexicon used by Feedback Analyzer.
 # This is an explainable NLP heuristic, not a trained deep-learning model.
 _SENTIMENT_LEXICON = {
@@ -333,6 +381,8 @@ def assistant_help():
         answer = "Choose Get started, select Log in, then enter the same email and password you registered with. Passwords are stored as secure hashes."
     elif any(k in q for k in ("match", "discover", "find people", "mentor")):
         answer = "Open Discover people to search by name, skill, or department. My matches shows two-way matches: you can teach something they want to learn, and they can teach something you want to learn."
+    elif any(k in q for k in ("learning room", "study room", "group learning", "study together", "room chat")):
+        answer = "Open Learning Rooms from the sidebar. Browse rooms by topic and level, join one to use its member-only discussion, and select Join live video to meet through Jitsi. You can also create and host your own room."
     elif any(k in q for k in ("exchange", "swap", "accept", "decline", "request", "complete")):
         answer = "Open a person card and choose Propose swap, select the skill you will teach and the skill you want to learn, then send the request. Manage incoming requests in Skill exchanges. Accepted exchanges can be marked complete."
     elif any(k in q for k in ("profile", "bio", "department", "skill")):
@@ -1172,6 +1222,143 @@ def analyze_feedback_text():
         "aspects": _feedback_aspects(comment),
         "note": "This is an explainable lexicon-based estimate combined with the selected star rating; it is not a trained neural model. Text entered here is analysed in memory and is not saved."
     })
+
+
+# Learning Rooms: public discovery, member-only chat and hosted video sessions.
+def _room_member(room_id, user_id):
+    return LearningRoomMember.query.filter_by(room_id=room_id, user_id=user_id).first()
+
+@app.get("/api/rooms")
+def list_learning_rooms():
+    viewer = current_user()
+    status = request.args.get("status", "open").strip().lower()
+    query = LearningRoom.query
+    if status in ("open", "live", "closed"):
+        query = query.filter_by(status="open" if status == "live" else status)
+    rooms = query.order_by(LearningRoom.created_at.desc()).limit(100).all()
+    return jsonify({"rooms": [r.public(viewer.id if viewer else None) for r in rooms]})
+
+@app.post("/api/rooms")
+def create_learning_room():
+    user, problem = require_user()
+    if problem:
+        return problem
+    data = request.get_json(silent=True) or {}
+    title = str(data.get("title", "")).strip()
+    topic = str(data.get("topic", "")).strip()
+    description = str(data.get("description", "")).strip()
+    level = str(data.get("level", "All levels")).strip()
+    try:
+        capacity = int(data.get("capacity", 12))
+    except (TypeError, ValueError):
+        return error("Choose a valid room capacity.")
+    if not title or len(title) > 100:
+        return error("Room title is required (maximum 100 characters).")
+    if not topic or len(topic) > 80:
+        return error("Enter a topic (maximum 80 characters).")
+    if len(description) > 600:
+        return error("Description must be 600 characters or fewer.")
+    if capacity < 2 or capacity > 50:
+        return error("Room capacity must be between 2 and 50.")
+    if level not in ("Beginner", "Intermediate", "Advanced", "All levels"):
+        return error("Choose a valid experience level.")
+    slug = secrets.token_urlsafe(18).replace("-", "").replace("_", "")
+    room = LearningRoom(title=title, topic=topic, description=description,
+                        level=level, capacity=capacity, host_id=user.id,
+                        meeting_url=f"https://meet.jit.si/SkillSwap-{slug}")
+    db.session.add(room)
+    db.session.flush()
+    db.session.add(LearningRoomMember(room_id=room.id, user_id=user.id))
+    db.session.commit()
+    return jsonify({"message": "Learning room created.", "room": room.public(user.id)}), 201
+
+@app.post("/api/rooms/<int:room_id>/join")
+def join_learning_room(room_id):
+    user, problem = require_user()
+    if problem:
+        return problem
+    room = db.session.get(LearningRoom, room_id)
+    if not room or room.status != "open":
+        return error("This learning room is no longer open.", 404)
+    if _room_member(room.id, user.id):
+        return jsonify({"message": "You are already in this room.", "room": room.public(user.id)})
+    if len(room.members) >= room.capacity:
+        return error("This room is full. Try another learning room.", 409)
+    db.session.add(LearningRoomMember(room_id=room.id, user_id=user.id))
+    db.session.commit()
+    return jsonify({"message": "You joined the learning room.", "room": room.public(user.id)})
+
+@app.post("/api/rooms/<int:room_id>/leave")
+def leave_learning_room(room_id):
+    user, problem = require_user()
+    if problem:
+        return problem
+    room = db.session.get(LearningRoom, room_id)
+    if not room:
+        return error("Learning room not found.", 404)
+    if room.host_id == user.id:
+        return error("The room host cannot leave. Close the room instead.")
+    member = _room_member(room.id, user.id)
+    if member:
+        db.session.delete(member)
+        db.session.commit()
+    return jsonify({"message": "You left the learning room."})
+
+@app.post("/api/rooms/<int:room_id>/close")
+def close_learning_room(room_id):
+    user, problem = require_user()
+    if problem:
+        return problem
+    room = db.session.get(LearningRoom, room_id)
+    if not room:
+        return error("Learning room not found.", 404)
+    if room.host_id != user.id:
+        return error("Only the room host can close this room.", 403)
+    room.status = "closed"
+    room.closed_at = datetime.now(timezone.utc)
+    db.session.commit()
+    return jsonify({"message": "Learning room closed.", "room": room.public(user.id)})
+
+@app.get("/api/rooms/<int:room_id>/messages")
+def get_learning_room_messages(room_id):
+    user, problem = require_user()
+    if problem:
+        return problem
+    room = db.session.get(LearningRoom, room_id)
+    if not room or not _room_member(room.id, user.id):
+        return error("Join this room to view its discussion.", 403)
+    after = request.args.get("after", "0")
+    try:
+        after_id = max(0, int(after))
+    except ValueError:
+        after_id = 0
+    messages = LearningRoomMessage.query.filter(
+        LearningRoomMessage.room_id == room.id,
+        LearningRoomMessage.id > after_id
+    ).order_by(LearningRoomMessage.id.asc()).limit(100).all()
+    return jsonify({"messages": [{
+        "id": m.id, "sender_id": m.sender_id, "sender_name": m.sender.name,
+        "body": m.body, "created_at": m.created_at.isoformat() if m.created_at else None
+    } for m in messages]})
+
+@app.post("/api/rooms/<int:room_id>/messages")
+def post_learning_room_message(room_id):
+    user, problem = require_user()
+    if problem:
+        return problem
+    room = db.session.get(LearningRoom, room_id)
+    if not room or room.status != "open" or not _room_member(room.id, user.id):
+        return error("Join an open room before posting.", 403)
+    data = request.get_json(silent=True) or {}
+    body = str(data.get("body", "")).strip()
+    if not body or len(body) > 2000:
+        return error("Message must contain 1–2000 characters.")
+    msg = LearningRoomMessage(room_id=room.id, sender_id=user.id, body=body)
+    db.session.add(msg)
+    db.session.commit()
+    return jsonify({"message": {"id": msg.id, "sender_id": user.id,
+        "sender_name": user.name, "body": msg.body,
+        "created_at": msg.created_at.isoformat() if msg.created_at else None}}), 201
 
 with app.app_context():
     db.create_all()

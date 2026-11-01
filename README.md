@@ -183,3 +183,11 @@ The interface now combines five visual/product directions:
 - **Social learning:** clearer skill-first community profiles, complementary skill discovery, chat/video collaboration entry points, and a community contributor panel ranked by the number of skills members list as teachable. This panel uses actual public profile data; it is not a rating/reputation score.
 
 The existing Flask API, authentication, AI Lab, exchanges, chat, resources and video-call workflow are retained. The new dashboard and interactions are frontend enhancements and do not require database migrations.
+
+## Learning Rooms (new)
+
+SkillSwap now includes public peer-learning rooms. Signed-in users can create a room with a title, topic, description, experience level and member capacity. The creator is automatically added as the host. Other signed-in users can browse, search, filter, join and leave open rooms. Room membership is stored in the database and only members can read or post in the room discussion. Messages refresh periodically while the room is open in the browser. The host can close their room; closed rooms stop accepting new members and messages.
+
+Each room receives a unique Jitsi Meet URL. The **Join live video** button opens that meeting in a new tab; participants may need to allow microphone/camera access in their browser. Jitsi is an external meeting service, so its availability, privacy terms and meeting controls are governed by Jitsi. The room chat and membership are handled by the SkillSwap Flask backend.
+
+The feature uses the existing Flask-SQLAlchemy database and adds `learning_room`, `learning_room_member` and `learning_room_message` tables automatically through the existing `db.create_all()` startup call. No additional Python packages are required. Back up your database before deployment. If your deployment uses ephemeral local SQLite storage, room records and messages can be lost on a restart/redeploy; use persistent storage or PostgreSQL for production data retention.
